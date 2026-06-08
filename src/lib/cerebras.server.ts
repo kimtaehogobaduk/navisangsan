@@ -2,7 +2,7 @@
 // Cerebras Inference API is OpenAI-compatible.
 
 const CEREBRAS_URL = "https://api.cerebras.ai/v1/chat/completions";
-export const CEREBRAS_MODEL = "llama-3.3-70b";
+export const CEREBRAS_MODEL = "llama3.3-70b";
 
 export type ChatMessage = {
   role: "system" | "user" | "assistant";

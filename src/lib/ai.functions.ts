@@ -276,16 +276,24 @@ priority: high/medium/low, week: 1~4, hours: 숫자${training}`;
       ];
 
       const months: import("./roadmap").RoadmapMonth[] = [];
+      const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-      // 3개월을 순차 처리, 각 달은 공부+생기부 2개 병렬 호출
-      for (const meta of MONTH_META) {
+      // 6개 호출 완전 순차 처리 + 호출 사이 1초 딜레이 — rate limit 방지
+      for (let mi = 0; mi < MONTH_META.length; mi++) {
+        const meta = MONTH_META[mi];
         const studyUser = `학생: ${profileStr}\n\n[${meta.label} 공부 전략: ${meta.studyFocus}]\n내신(academics), 수능(exam), 멘탈(mental) 과제 각 주 2개씩 총 8개를 JSON 배열로 출력.`;
         const recordUser = `학생: ${profileStr}\n\n[${meta.label} 생기부 전략: ${meta.recordFocus}]\n생기부세특(records), 자소서(essay), 과외활동(activity) 과제 각 주 2개씩 총 8개를 JSON 배열로 출력.`;
 
-        const [studyReply, recordReply] = await Promise.all([
-          cerebrasChat({ messages: [{ role: "system", content: SYSTEM }, { role: "user", content: studyUser }], temperature: 0.3, max_tokens: 900 }),
-          cerebrasChat({ messages: [{ role: "system", content: SYSTEM }, { role: "user", content: recordUser }], temperature: 0.3, max_tokens: 900 }),
-        ]);
+        if (mi > 0) await delay(1200); // 앞 달 처리 후 대기
+        const studyReply = await cerebrasChat({
+          messages: [{ role: "system", content: SYSTEM }, { role: "user", content: studyUser }],
+          temperature: 0.3, max_tokens: 900,
+        });
+        await delay(1200); // 공부 → 생기부 사이 대기
+        const recordReply = await cerebrasChat({
+          messages: [{ role: "system", content: SYSTEM }, { role: "user", content: recordUser }],
+          temperature: 0.3, max_tokens: 900,
+        });
 
         const studyTasks = parseTaskArray(studyReply, meta.idx, "study");
         const recordTasks = parseTaskArray(recordReply, meta.idx, "record");

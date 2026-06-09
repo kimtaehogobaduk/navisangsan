@@ -9,6 +9,10 @@ export type ChatMessage = {
   content: string;
 };
 
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
 /** Returns all configured API keys in priority order. */
 function getApiKeys(): string[] {
   const keys: string[] = [];
@@ -52,6 +56,12 @@ async function callOnce(
   return { ok: true, content: json.choices?.[0]?.message?.content?.trim() ?? "" };
 }
 
+/**
+ * 키 순환 전략:
+ * - 402 / 401 → 즉시 다음 키로 전환
+ * - 429 (rate limit) → 1초 대기 후 다음 키로 전환 (각 키는 독립적 rate limit 보유)
+ *   마지막 키도 429면 동일 키로 최대 3회 재시도 (2s, 4s, 8s backoff)
+ */
 export async function cerebrasChat(opts: {
   messages: ChatMessage[];
   temperature?: number;
@@ -60,37 +70,56 @@ export async function cerebrasChat(opts: {
   const keys = getApiKeys();
   if (!keys.length) throw new Error("CEREBRAS_API_KEY가 설정되지 않았습니다.");
 
-  let lastError = "";
-
-  for (let i = 0; i < keys.length; i++) {
-    const result = await callOnce(keys[i], opts);
+  // Phase 1: try each key once (with a brief wait on 429 before switching)
+  for (let keyIdx = 0; keyIdx < keys.length; keyIdx++) {
+    const keyLabel = keyIdx === 0 ? "기본 키" : `키 ${keyIdx + 1}번`;
+    const result = await callOnce(keys[keyIdx], opts);
 
     if (result.ok) return result.content;
 
     const { status, message } = result;
-    const keyLabel = i === 0 ? "기본 키" : `키 ${i + 1}번`;
+
+    if (status === 429) {
+      if (keyIdx < keys.length - 1) {
+        // More keys available — wait 1s then try next key
+        console.warn(`[Cerebras] ${keyLabel} rate limit, 1초 대기 후 다음 키로 전환…`);
+        await sleep(1000);
+        continue;
+      }
+      // Last key — fall through to Phase 2
+      console.warn(`[Cerebras] 모든 키 rate limit 도달, 지수 백오프 재시도 시작…`);
+      break;
+    }
 
     if (status === 402) {
-      // Credits exhausted — try next key
-      lastError = `${keyLabel} 크레딧 소진`;
-      console.warn(`[Cerebras] ${keyLabel} 크레딧 소진, 다음 키로 전환 중…`);
+      console.warn(`[Cerebras] ${keyLabel} 크레딧 소진, 다음 키로 전환…`);
       continue;
     }
 
     if (status === 401) {
-      lastError = `${keyLabel} 유효하지 않음`;
-      console.warn(`[Cerebras] ${keyLabel} 인증 실패, 다음 키로 전환 중…`);
+      console.warn(`[Cerebras] ${keyLabel} 인증 실패, 다음 키로 전환…`);
       continue;
-    }
-
-    if (status === 429) {
-      throw new Error("Cerebras 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요.");
     }
 
     throw new Error(`Cerebras 호출에 실패했습니다 (${status}). ${message}`);
   }
 
+  // Phase 2: all keys tried once and failed — retry first key with backoff
+  const waits = [2000, 4000, 8000];
+  for (let attempt = 0; attempt < waits.length; attempt++) {
+    const wait = waits[attempt];
+    console.warn(`[Cerebras] ${wait / 1000}초 대기 후 재시도 (${attempt + 1}/${waits.length})…`);
+    await sleep(wait);
+
+    const result = await callOnce(keys[0], opts);
+    if (result.ok) return result.content;
+
+    if (result.status !== 429) {
+      throw new Error(`Cerebras 호출에 실패했습니다 (${result.status}). ${result.message}`);
+    }
+  }
+
   throw new Error(
-    `모든 Cerebras API 키가 소진되었습니다 (${lastError}). 새 키를 추가하거나 크레딧을 충전해주세요.`,
+    "Cerebras API 요청 한도를 초과했습니다. 잠시 후(1~2분) 다시 시도해주세요.",
   );
 }

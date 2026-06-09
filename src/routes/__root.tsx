@@ -82,6 +82,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "description", content: "강남 컨설팅 100만원을 AI로. 전국 누구에게나. NAVI는 중2~고3 입시 전구간 맞춤 로드맵을 설계합니다." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:title", content: "NAVI — AI 진로 컨설팅" },
+      { name: "twitter:title", content: "NAVI — AI 진로 컨설팅" },
+      { property: "og:description", content: "강남 컨설팅 100만원을 AI로. 전국 누구에게나. NAVI는 중2~고3 입시 전구간 맞춤 로드맵을 설계합니다." },
+      { name: "twitter:description", content: "강남 컨설팅 100만원을 AI로. 전국 누구에게나. NAVI는 중2~고3 입시 전구간 맞춤 로드맵을 설계합니다." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b8fce95a-93bb-4b3a-b17c-dfc7e36eec21/id-preview-b7e61069--50818e42-cf56-4355-9676-1a4a6e7f81ea.lovable.app-1780970712607.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b8fce95a-93bb-4b3a-b17c-dfc7e36eec21/id-preview-b7e61069--50818e42-cf56-4355-9676-1a4a6e7f81ea.lovable.app-1780970712607.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

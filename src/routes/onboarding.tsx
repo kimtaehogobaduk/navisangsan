@@ -19,6 +19,10 @@ export const Route = createFileRoute("/onboarding")({
 const GRADES: StudentProfile["grade"][] = ["중2", "중3", "고1", "고2", "고3", "N수"];
 const TRACKS: StudentProfile["trackType"][] = ["이과", "문과", "예체능", "미정"];
 const GRADE_NUMS = ["", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+// 고2 이하: 2022 개정 교육과정 5등급제 (A~E = 1~5)
+const INTERNAL_GRADE_5 = ["", "1", "2", "3", "4", "5"];
+const INTERNAL_GRADE_9 = ["", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+const FIVE_TIER_GRADES: StudentProfile["grade"][] = ["고1", "고2"];
 
 const HIGH_GRADES: StudentProfile["grade"][] = ["고1", "고2", "고3", "N수"];
 const INTERNAL_YEARS_MAP: Record<string, ("1학년" | "2학년" | "3학년")[]> = {
@@ -376,11 +380,23 @@ function Onboarding() {
           <div className="space-y-8">
             <SectionTitle>내신 성적</SectionTitle>
             <p className="text-xs text-muted-foreground -mt-6">
-              학년별 과목 등급을 입력해주세요. (1~9등급, 미입력 가능)
+              학년별 과목 등급을 입력해주세요.
+              {FIVE_TIER_GRADES.includes(p.grade as typeof FIVE_TIER_GRADES[number])
+                ? " (2022 개정 교육과정 · 5등급제 적용)"
+                : " (1~9등급, 미입력 가능)"}
             </p>
-            {internalYearsAvailable.map((yearLabel) => (
+            {internalYearsAvailable.map((yearLabel) => {
+              const gradeNums = FIVE_TIER_GRADES.includes(p.grade as typeof FIVE_TIER_GRADES[number])
+                ? INTERNAL_GRADE_5
+                : INTERNAL_GRADE_9;
+              return (
               <div key={yearLabel} className="rounded-2xl border border-border bg-surface p-5">
-                <h3 className="mb-4 text-sm font-semibold text-foreground">{yearLabel}</h3>
+                <div className="mb-3 flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-foreground">{yearLabel}</h3>
+                  {gradeNums === INTERNAL_GRADE_5 && (
+                    <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-medium text-cyan-400">5등급제</span>
+                  )}
+                </div>
                 <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
                   {CORE_SUBJECTS.map(({ key, label }) => (
                     <div key={key} className="flex flex-col gap-1">
@@ -390,7 +406,7 @@ function Onboarding() {
                         onChange={(e) => setInternalGrade(yearLabel, key, e.target.value)}
                         className={`${selectCls} w-full`}
                       >
-                        {GRADE_NUMS.map((g) => (
+                        {gradeNums.map((g) => (
                           <option key={g} value={g}>{g ? `${g}등급` : "-"}</option>
                         ))}
                       </select>
@@ -398,7 +414,8 @@ function Onboarding() {
                   ))}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

@@ -1,5 +1,10 @@
 import "./lib/error-capture";
 
+// 입시 정보 자동화 워커 시작 (비동기 — 서버 응답 블록 안 함)
+import("./lib/admissions.worker").then(({ startAdmissionsWorker }) => {
+  startAdmissionsWorker().catch(console.error);
+}).catch(console.error);
+
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 

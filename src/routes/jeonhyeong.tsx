@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
 import { analyzeJeonhyeong } from "@/lib/ai.functions";
 import { Target, Loader2, Sparkles } from "lucide-react";
+import { Markdown } from "@/components/Markdown";
 
 export const Route = createFileRoute("/jeonhyeong")({
   head: () => ({ meta: [{ title: "전형 분석 — NAVI" }] }),
@@ -97,8 +98,8 @@ function JeonhyeongPage() {
       )}
 
       {result && (
-        <article className="mt-6 whitespace-pre-wrap rounded-2xl border border-border bg-surface p-5 text-sm leading-relaxed">
-          {result}
+        <article className="mt-6 rounded-2xl border border-border bg-surface p-5">
+          <Markdown>{result}</Markdown>
         </article>
       )}
     </AppShell>

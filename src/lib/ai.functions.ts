@@ -26,34 +26,129 @@ const MessageSchema = z.object({
   content: z.string(),
 });
 
+const SubjectGradeSchema = z.object({
+  grade: z.string().optional(),
+  percentile: z.string().optional(),
+});
+
+const MockSubjectGradesSchema = z.object({
+  korean: SubjectGradeSchema.optional(),
+  math: SubjectGradeSchema.optional(),
+  english: SubjectGradeSchema.optional(),
+  society: SubjectGradeSchema.optional(),
+  science: SubjectGradeSchema.optional(),
+  history: SubjectGradeSchema.optional(),
+});
+
+const InternalYearRecordSchema = z.object({
+  year: z.string(),
+  korean: z.string().optional(),
+  math: z.string().optional(),
+  english: z.string().optional(),
+  society: z.string().optional(),
+  science: z.string().optional(),
+  history: z.string().optional(),
+  electives: z.array(z.object({ subject: z.string(), grade: z.string() })).optional(),
+});
+
 const ProfileSchema = z
   .object({
     name: z.string().optional(),
     grade: z.string().optional(),
+    school: z.string().optional(),
     region: z.string().optional(),
-    internalGrade: z.string().optional(),
-    mockGrade: z.string().optional(),
+    mockGrades: MockSubjectGradesSchema.optional(),
+    internalYears: z.array(InternalYearRecordSchema).optional(),
+    electiveSubjects: z.array(z.object({ subject: z.string(), grade: z.string().optional() })).optional(),
     interests: z.array(z.string()).optional(),
+    customInterest: z.string().optional(),
     targetUniversity: z.string().optional(),
     targetMajor: z.string().optional(),
     trackType: z.string().optional(),
     notes: z.string().optional(),
+    internalGrade: z.string().optional(),
+    mockGrade: z.string().optional(),
   })
   .partial();
 
+const MOCK_LABELS: Record<string, string> = {
+  korean: "국어", math: "수학", english: "영어",
+  society: "사회", science: "과학", history: "한국사",
+};
+
 function profileBlock(p?: z.infer<typeof ProfileSchema>): string {
   if (!p) return "(학생 프로필 정보 없음)";
-  const lines = [
-    p.name && `이름: ${p.name}`,
-    p.grade && `학년: ${p.grade}${p.trackType ? ` (${p.trackType})` : ""}`,
-    p.region && `지역: ${p.region}`,
-    p.internalGrade && `내신 평균: ${p.internalGrade}등급`,
-    p.mockGrade && `모의고사 평균: ${p.mockGrade}등급`,
-    p.interests?.length && `관심 분야: ${p.interests.join(", ")}`,
-    (p.targetUniversity || p.targetMajor) &&
-      `목표: ${p.targetUniversity ?? ""} ${p.targetMajor ?? ""}`.trim(),
-    p.notes && `메모: ${p.notes}`,
-  ].filter(Boolean);
+  const lines: string[] = [];
+
+  if (p.name) lines.push(`이름: ${p.name}`);
+  if (p.grade) lines.push(`학년: ${p.grade}${p.trackType ? ` (${p.trackType})` : ""}`);
+  if (p.school) lines.push(`학교: ${p.school}`);
+  else if (p.region) lines.push(`지역: ${p.region}`);
+
+  if (p.mockGrades) {
+    const mockLines: string[] = [];
+    const strong: string[] = [];
+    const mid: string[] = [];
+    const weak: string[] = [];
+    for (const [key, label] of Object.entries(MOCK_LABELS)) {
+      const sg = p.mockGrades[key as keyof typeof p.mockGrades];
+      if (sg?.grade) {
+        const g = parseInt(sg.grade);
+        const pct = sg.percentile ? `(백분위 ${sg.percentile}%)` : "";
+        mockLines.push(`${label} ${sg.grade}등급${pct}`);
+        if (g <= 2) strong.push(`${label}(${sg.grade})`);
+        else if (g <= 4) mid.push(`${label}(${sg.grade})`);
+        else weak.push(`${label}(${sg.grade})`);
+      }
+    }
+    if (mockLines.length) {
+      lines.push(`\n[모의고사 성적]\n${mockLines.join(" | ")}`);
+      const analysis: string[] = [];
+      if (strong.length) analysis.push(`■ 강점(1~2등급): ${strong.join(", ")}`);
+      if (mid.length) analysis.push(`■ 보완 가능(3~4등급): ${mid.join(", ")}`);
+      if (weak.length) analysis.push(`■ 집중 관리(5등급~): ${weak.join(", ")}`);
+      if (analysis.length) {
+        lines.push(`[과목별 강점/약점 분석]\n${analysis.join("\n")}`);
+        const track = p.trackType;
+        if (track === "이과" && weak.some(w => w.startsWith("수학") || w.startsWith("과학")))
+          lines.push("→ 이과 지망이나 수학/과학 집중 보완이 시급함");
+        else if (track === "문과" && weak.some(w => w.startsWith("국어") || w.startsWith("사회")))
+          lines.push("→ 문과 지망이나 국어/사회 집중 보완이 시급함");
+      }
+    }
+  } else if (p.mockGrade) {
+    lines.push(`모의고사 평균: ${p.mockGrade}등급`);
+  }
+
+  if (p.internalYears?.length) {
+    lines.push("\n[내신 성적]");
+    for (const yr of p.internalYears) {
+      const subs = [
+        yr.korean && `국어 ${yr.korean}`,
+        yr.math && `수학 ${yr.math}`,
+        yr.english && `영어 ${yr.english}`,
+        yr.society && `사회 ${yr.society}`,
+        yr.science && `과학 ${yr.science}`,
+        yr.history && `한국사 ${yr.history}`,
+      ].filter(Boolean);
+      const elStr = yr.electives?.map(e => `${e.subject} ${e.grade}`).join(", ");
+      lines.push(`${yr.year}: ${subs.join(" / ")}${elStr ? ` | 선택: ${elStr}` : ""}`);
+    }
+  } else if (p.internalGrade) {
+    lines.push(`내신 평균: ${p.internalGrade}등급`);
+  }
+
+  if (p.electiveSubjects?.length) {
+    const elStr = p.electiveSubjects.map(e => e.grade ? `${e.subject}(${e.grade}등급)` : e.subject).join(", ");
+    lines.push(`\n선택과목: ${elStr}`);
+  }
+
+  const allInterests = [...(p.interests ?? []), ...(p.customInterest ? [p.customInterest] : [])];
+  if (allInterests.length) lines.push(`관심 분야: ${allInterests.join(", ")}`);
+  if (p.targetUniversity || p.targetMajor)
+    lines.push(`목표: ${p.targetUniversity ?? ""} ${p.targetMajor ?? ""}`.trim());
+  if (p.notes) lines.push(`메모: ${p.notes}`);
+
   return lines.length ? lines.join("\n") : "(학생 프로필 정보 없음)";
 }
 

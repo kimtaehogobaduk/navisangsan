@@ -214,15 +214,13 @@ function LoginPage() {
           </div>
         </div>
 
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          로그인 없이도 앱을 사용할 수 있습니다.{" "}
-          <button
-            onClick={() => navigate({ to: "/dashboard" })}
-            className="text-brand hover:underline"
-          >
-            건너뛰기 →
-          </button>
-        </p>
+        <button
+          type="button"
+          onClick={() => navigate({ to: "/onboarding" })}
+          className="mt-4 w-full rounded-2xl border border-border bg-surface py-3 text-sm font-medium text-muted-foreground transition hover:bg-surface-elevated hover:text-foreground"
+        >
+          비회원으로 이용하기
+        </button>
       </div>
     </div>
   );

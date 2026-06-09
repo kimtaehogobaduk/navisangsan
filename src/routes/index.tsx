@@ -59,7 +59,7 @@ function Landing() {
           <span className="text-lg font-bold tracking-tight">NAVI</span>
         </div>
         <Link
-          to="/onboarding"
+          to="/login"
           className="rounded-full border border-border bg-surface px-4 py-2 text-xs font-medium text-foreground transition hover:bg-surface-elevated"
         >
           시작하기

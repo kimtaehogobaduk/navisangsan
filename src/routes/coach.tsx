@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
 import { aiCoachChat } from "@/lib/ai.functions";
 import { Send, Loader2, Sparkles } from "lucide-react";
+import { Markdown } from "@/components/Markdown";
 
 export const Route = createFileRoute("/coach")({
   head: () => ({ meta: [{ title: "AI 코치 — NAVI" }] }),
@@ -111,13 +112,13 @@ function Coach() {
             className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                 m.role === "user"
-                  ? "bg-gradient-brand text-brand-foreground shadow-glow"
+                  ? "whitespace-pre-wrap bg-gradient-brand text-brand-foreground shadow-glow"
                   : "border border-border bg-surface text-foreground"
               }`}
             >
-              {m.content}
+              {m.role === "assistant" ? <Markdown>{m.content}</Markdown> : m.content}
             </div>
           </div>
         ))}

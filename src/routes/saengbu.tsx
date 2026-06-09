@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
 import { buildSaengbu } from "@/lib/ai.functions";
 import { FileText, Loader2, Sparkles, Copy, Check } from "lucide-react";
+import { Markdown } from "@/components/Markdown";
 
 export const Route = createFileRoute("/saengbu")({
   head: () => ({ meta: [{ title: "생기부 AI 빌더 — NAVI" }] }),
@@ -131,7 +132,7 @@ function SaengbuPage() {
               {copied ? "복사됨" : "복사"}
             </button>
           </div>
-          <div className="whitespace-pre-wrap text-sm leading-relaxed">{result}</div>
+          <Markdown>{result}</Markdown>
         </article>
       )}
     </AppShell>

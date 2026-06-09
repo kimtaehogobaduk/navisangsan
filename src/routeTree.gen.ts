@@ -9,16 +9,32 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SubjectsRouteImport } from './routes/subjects'
 import { Route as SaengbuRouteImport } from './routes/saengbu'
+import { Route as ParentRouteImport } from './routes/parent'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as MoreRouteImport } from './routes/more'
 import { Route as JeonhyeongRouteImport } from './routes/jeonhyeong'
+import { Route as JasoseoRouteImport } from './routes/jasoseo'
+import { Route as InterviewRouteImport } from './routes/interview'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CurriculumRouteImport } from './routes/curriculum'
 import { Route as CoachRouteImport } from './routes/coach'
 import { Route as IndexRouteImport } from './routes/index'
 
+const SubjectsRoute = SubjectsRouteImport.update({
+  id: '/subjects',
+  path: '/subjects',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SaengbuRoute = SaengbuRouteImport.update({
   id: '/saengbu',
   path: '/saengbu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParentRoute = ParentRouteImport.update({
+  id: '/parent',
+  path: '/parent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OnboardingRoute = OnboardingRouteImport.update({
@@ -26,14 +42,34 @@ const OnboardingRoute = OnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MoreRoute = MoreRouteImport.update({
+  id: '/more',
+  path: '/more',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const JeonhyeongRoute = JeonhyeongRouteImport.update({
   id: '/jeonhyeong',
   path: '/jeonhyeong',
   getParentRoute: () => rootRouteImport,
 } as any)
+const JasoseoRoute = JasoseoRouteImport.update({
+  id: '/jasoseo',
+  path: '/jasoseo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InterviewRoute = InterviewRouteImport.update({
+  id: '/interview',
+  path: '/interview',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CurriculumRoute = CurriculumRouteImport.update({
+  id: '/curriculum',
+  path: '/curriculum',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CoachRoute = CoachRouteImport.update({
@@ -50,65 +86,127 @@ const IndexRoute = IndexRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/coach': typeof CoachRoute
+  '/curriculum': typeof CurriculumRoute
   '/dashboard': typeof DashboardRoute
+  '/interview': typeof InterviewRoute
+  '/jasoseo': typeof JasoseoRoute
   '/jeonhyeong': typeof JeonhyeongRoute
+  '/more': typeof MoreRoute
   '/onboarding': typeof OnboardingRoute
+  '/parent': typeof ParentRoute
   '/saengbu': typeof SaengbuRoute
+  '/subjects': typeof SubjectsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/coach': typeof CoachRoute
+  '/curriculum': typeof CurriculumRoute
   '/dashboard': typeof DashboardRoute
+  '/interview': typeof InterviewRoute
+  '/jasoseo': typeof JasoseoRoute
   '/jeonhyeong': typeof JeonhyeongRoute
+  '/more': typeof MoreRoute
   '/onboarding': typeof OnboardingRoute
+  '/parent': typeof ParentRoute
   '/saengbu': typeof SaengbuRoute
+  '/subjects': typeof SubjectsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/coach': typeof CoachRoute
+  '/curriculum': typeof CurriculumRoute
   '/dashboard': typeof DashboardRoute
+  '/interview': typeof InterviewRoute
+  '/jasoseo': typeof JasoseoRoute
   '/jeonhyeong': typeof JeonhyeongRoute
+  '/more': typeof MoreRoute
   '/onboarding': typeof OnboardingRoute
+  '/parent': typeof ParentRoute
   '/saengbu': typeof SaengbuRoute
+  '/subjects': typeof SubjectsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/coach'
+    | '/curriculum'
     | '/dashboard'
+    | '/interview'
+    | '/jasoseo'
     | '/jeonhyeong'
+    | '/more'
     | '/onboarding'
+    | '/parent'
     | '/saengbu'
+    | '/subjects'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/coach' | '/dashboard' | '/jeonhyeong' | '/onboarding' | '/saengbu'
+  to:
+    | '/'
+    | '/coach'
+    | '/curriculum'
+    | '/dashboard'
+    | '/interview'
+    | '/jasoseo'
+    | '/jeonhyeong'
+    | '/more'
+    | '/onboarding'
+    | '/parent'
+    | '/saengbu'
+    | '/subjects'
   id:
     | '__root__'
     | '/'
     | '/coach'
+    | '/curriculum'
     | '/dashboard'
+    | '/interview'
+    | '/jasoseo'
     | '/jeonhyeong'
+    | '/more'
     | '/onboarding'
+    | '/parent'
     | '/saengbu'
+    | '/subjects'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CoachRoute: typeof CoachRoute
+  CurriculumRoute: typeof CurriculumRoute
   DashboardRoute: typeof DashboardRoute
+  InterviewRoute: typeof InterviewRoute
+  JasoseoRoute: typeof JasoseoRoute
   JeonhyeongRoute: typeof JeonhyeongRoute
+  MoreRoute: typeof MoreRoute
   OnboardingRoute: typeof OnboardingRoute
+  ParentRoute: typeof ParentRoute
   SaengbuRoute: typeof SaengbuRoute
+  SubjectsRoute: typeof SubjectsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/subjects': {
+      id: '/subjects'
+      path: '/subjects'
+      fullPath: '/subjects'
+      preLoaderRoute: typeof SubjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/saengbu': {
       id: '/saengbu'
       path: '/saengbu'
       fullPath: '/saengbu'
       preLoaderRoute: typeof SaengbuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parent': {
+      id: '/parent'
+      path: '/parent'
+      fullPath: '/parent'
+      preLoaderRoute: typeof ParentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -118,6 +216,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/more': {
+      id: '/more'
+      path: '/more'
+      fullPath: '/more'
+      preLoaderRoute: typeof MoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/jeonhyeong': {
       id: '/jeonhyeong'
       path: '/jeonhyeong'
@@ -125,11 +230,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof JeonhyeongRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/jasoseo': {
+      id: '/jasoseo'
+      path: '/jasoseo'
+      fullPath: '/jasoseo'
+      preLoaderRoute: typeof JasoseoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/interview': {
+      id: '/interview'
+      path: '/interview'
+      fullPath: '/interview'
+      preLoaderRoute: typeof InterviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/curriculum': {
+      id: '/curriculum'
+      path: '/curriculum'
+      fullPath: '/curriculum'
+      preLoaderRoute: typeof CurriculumRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/coach': {
@@ -152,10 +278,16 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CoachRoute: CoachRoute,
+  CurriculumRoute: CurriculumRoute,
   DashboardRoute: DashboardRoute,
+  InterviewRoute: InterviewRoute,
+  JasoseoRoute: JasoseoRoute,
   JeonhyeongRoute: JeonhyeongRoute,
+  MoreRoute: MoreRoute,
   OnboardingRoute: OnboardingRoute,
+  ParentRoute: ParentRoute,
   SaengbuRoute: SaengbuRoute,
+  SubjectsRoute: SubjectsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -252,3 +252,356 @@ JSON 외 어떤 텍스트도 출력하지 마라.`;
       normalizeAiError(error);
     }
   });
+
+// ============ 고교학점제 선택과목 추천 ============
+export const recommendSubjects = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      profile: ProfileSchema.optional(),
+      currentSubjects: z.string().optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { cerebrasChat } = await import("./cerebras.server");
+      const system = `너는 한국 고교학점제 선택과목 전략 전문가다. 학생 프로필과 목표 학과를 바탕으로 최적의 선택과목 조합을 추천한다.
+
+${FORMAT_RULES}
+
+출력 구조 (반드시 이 마크다운 구조 사용):
+
+## 📚 선택과목 추천 전략
+> 1~2줄 핵심 전략 요약. **목표 학과명**과 **계열**을 명시.
+
+## ✅ 추천 선택과목 조합
+| 구분 | 과목명 | 이수 이유 | 우선도 |
+|---|---|---|---|
+| 일반선택 | ... | ... | ⭐⭐⭐ |
+| 진로선택 | ... | ... | ⭐⭐⭐ |
+| 융합선택 | ... | ... | ⭐⭐ |
+
+## 🚫 피해야 할 과목 조합
+- **과목명**: 이유 (목표 학과 불이익)
+
+## 🏛️ 대학별 선호 과목
+| 대학 계열 | 핵심 이수 과목 | 미이수 시 불이익 |
+|---|---|---|
+| ... | ... | ... |
+
+## 💡 세특 연계 전략
+> 선택과목에서 **생기부 세특**을 어떻게 연결할지 3가지 팁.
+- 팁 1
+- 팁 2
+- 팁 3
+
+---
+*고교학점제 적용 학년도에 따라 이수 가능 과목이 다를 수 있음.*`;
+
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n[현재 수강 중인 과목]\n${data.currentSubjects || "미입력"}\n\n위 학생에게 최적의 고교학점제 선택과목 조합을 추천해줘.`;
+
+      const reply = await cerebrasChat({
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature: 0.4,
+        max_tokens: 2000,
+      });
+      return { reply };
+    } catch (error) {
+      normalizeAiError(error);
+    }
+  });
+
+// ============ 커리큘럼 허브 (강의 + 도서 + 공모전) ============
+export const generateCurriculum = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      profile: ProfileSchema.optional(),
+      tab: z.enum(["lecture", "book", "contest"]),
+    }),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { cerebrasChat } = await import("./cerebras.server");
+
+      const tabPrompts: Record<string, string> = {
+        lecture: `너는 EBS 강의 큐레이터다. 학생 프로필에 맞는 EBS 강의를 추천한다.
+
+${FORMAT_RULES}
+
+출력 구조:
+## 🎬 EBS 추천 강의 목록
+
+### 📌 우선 수강 (이번 달)
+| 강의명 | 과목 | 강사 | 추천 이유 |
+|---|---|---|---|
+| ... | ... | ... | ... |
+
+### 📖 병행 수강 (다음 달)
+| 강의명 | 과목 | 강사 | 추천 이유 |
+|---|---|---|---|
+| ... | ... | ... | ... |
+
+## 💡 학습 전략
+> EBS 강의를 **생기부 세특**에 어떻게 연결할지 2~3가지 구체적 방법.
+- 방법 1
+- 방법 2
+- 방법 3`,
+
+        book: `너는 청소년 독서 큐레이터다. 학생 프로필·관심 분야·목표 학과에 맞는 책을 추천한다.
+
+${FORMAT_RULES}
+
+출력 구조:
+## 📚 맞춤 추천 도서
+
+### 🔥 필독 (목표 학과 직결)
+| 도서명 | 저자 | 핵심 내용 | 세특 활용 포인트 |
+|---|---|---|---|
+| ... | ... | ... | ... |
+
+### 🌱 교양 확장 (배경지식)
+| 도서명 | 저자 | 핵심 내용 | 세특 활용 포인트 |
+|---|---|---|---|
+| ... | ... | ... | ... |
+
+## 📝 독서록 세특 연결 전략
+> 독서 활동을 **생기부**에 녹이는 3가지 방법.
+- 방법 1
+- 방법 2
+- 방법 3`,
+
+        contest: `너는 공모전 전략 전문가다. 학생 프로필에 맞는 공모전을 추천하고, 각 공모전을 생기부 어느 항목에 활용할 수 있는지 전략을 제시한다.
+
+${FORMAT_RULES}
+
+출력 구조:
+## 🏆 맞춤 공모전 전략
+
+### ⭐ 즉시 도전 가능 (난이도 하~중)
+| 공모전명 | 주최 | 대상 | 마감 시기 | 생기부 활용 항목 |
+|---|---|---|---|---|
+| ... | ... | ... | ... | 세특/자율활동/진로활동 |
+
+### 🚀 목표 도전 (난이도 중~상)
+| 공모전명 | 주최 | 대상 | 마감 시기 | 생기부 활용 항목 |
+|---|---|---|---|---|
+| ... | ... | ... | ... | ... |
+
+## 🎯 공모전 → 생기부 활용 가이드
+> 공모전 수상·참가 경험을 **생기부 각 항목**에 어떻게 녹일지 구체적 전략.
+
+| 공모전 결과 | 생기부 항목 | 기재 전략 |
+|---|---|---|
+| 수상 | 수상경력 | ... |
+| 참가 | 세특 | ... |
+| 탐구 연계 | 진로활동 | ... |
+
+## ⚡ 즉시 실행 체크리스트
+- [ ] 항목 1
+- [ ] 항목 2
+- [ ] 항목 3`,
+      };
+
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n위 학생에게 맞는 내용을 추천해줘.`;
+
+      const reply = await cerebrasChat({
+        messages: [
+          { role: "system", content: tabPrompts[data.tab] },
+          { role: "user", content: user },
+        ],
+        temperature: 0.5,
+        max_tokens: 2000,
+      });
+      return { reply };
+    } catch (error) {
+      normalizeAiError(error);
+    }
+  });
+
+// ============ 자소서 AI 피드백 ============
+export const reviewJasoseo = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      profile: ProfileSchema.optional(),
+      question: z.string().min(1, "자소서 문항 입력"),
+      essay: z.string().min(1, "자소서 내용 입력"),
+      targetUniversity: z.string().optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { cerebrasChat } = await import("./cerebras.server");
+      const system = `너는 대입 자기소개서(자소서) 첨삭 전문가다. 대치동 최상위 컨설턴트 수준으로 첨삭한다.
+
+${FORMAT_RULES}
+
+출력 구조 (반드시 이 마크다운 구조 사용):
+
+## 🔍 종합 평가
+> 2~3줄 총평. **강점**과 **핵심 개선 포인트** 명시.
+
+점수: <span style="color:#22d3ee">**OO점 / 100점**</span>
+
+## ✅ 잘된 점 (Keep)
+| # | 항목 | 근거 문장 |
+|---|---|---|
+| 1 | ... | "..." |
+| 2 | ... | "..." |
+
+## 🔧 개선 필요 (Fix)
+| # | 문제 | 현재 문장 | 개선 방향 |
+|---|---|---|---|
+| 1 | ... | "..." | ... |
+| 2 | ... | "..." | ... |
+
+## ✍️ 핵심 문장 리라이팅
+> 가장 중요한 개선이 필요한 문장 1~2개를 직접 다시 써줌.
+
+**원문**: "..."
+**개선**: "..."
+
+## 🎯 합격 키워드 분석 — ${data.targetUniversity || data.profile?.targetUniversity || "목표 대학"}
+- **포함된 키워드**: ...
+- **추가해야 할 키워드**: <span style="color:#22d3ee">키워드1</span>, <span style="color:#22d3ee">키워드2</span>
+
+## 📝 최종 체크리스트
+- [ ] 글자 수 적정 (800~1500자 내외)
+- [ ] 학생 주체성이 드러나는가
+- [ ] 지원 동기가 구체적인가
+- [ ] 목표 학과 연결 키워드 포함
+- [ ] 과장·거짓 내용 없음`;
+
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n[지원 대학/학과]\n${data.targetUniversity || data.profile?.targetUniversity || "미입력"} ${data.profile?.targetMajor || ""}\n\n[자소서 문항]\n${data.question}\n\n[작성 내용]\n${data.essay}\n\n위 자소서를 첨삭해줘.`;
+
+      const reply = await cerebrasChat({
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature: 0.4,
+        max_tokens: 2500,
+      });
+      return { reply };
+    } catch (error) {
+      normalizeAiError(error);
+    }
+  });
+
+// ============ 면접 시뮬레이터 ============
+export const interviewChat = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      messages: z.array(MessageSchema).min(1),
+      profile: ProfileSchema.optional(),
+      interviewType: z.enum(["general", "subject", "situational"]).optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { cerebrasChat } = await import("./cerebras.server");
+      const typeLabel = {
+        general: "인성·일반 면접",
+        subject: "전공 적성 면접",
+        situational: "상황 제시형 면접",
+      }[data.interviewType ?? "general"];
+
+      const system = `너는 대학 입시 면접관이다. 학생을 상대로 실제 ${typeLabel} 면접을 진행한다.
+
+[면접 진행 방식]
+1. 첫 메시지에서는 면접 시작을 알리고 첫 번째 질문을 한다.
+2. 학생이 답하면 답변에 대한 간략한 피드백(1~2줄)을 주고 다음 질문으로 넘어간다.
+3. 질문은 학생 프로필·목표 학과에 맞게 심층적으로 구성한다.
+4. 피드백은 면접관 시각으로 솔직하게: 잘한 점 + 보완점을 항상 같이 말한다.
+5. 5~7개 질문 후 종합 피드백으로 마무리한다.
+
+[답변 형식]
+- 면접관 질문은 **볼드**로 강조
+- 피드백은 > 인용 블록으로 표시
+- 종합 피드백 시: 점수(OO/100), 강점 3가지, 개선점 3가지
+
+항상 한국어로, 실제 면접처럼 진행한다.
+
+[학생 프로필]
+${profileBlock(data.profile)}`;
+
+      const reply = await cerebrasChat({
+        messages: [{ role: "system", content: system }, ...data.messages],
+        temperature: 0.6,
+        max_tokens: 1000,
+      });
+      return { reply };
+    } catch (error) {
+      normalizeAiError(error);
+    }
+  });
+
+// ============ 학부모 주간 리포트 ============
+export const generateParentReport = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      profile: ProfileSchema.optional(),
+      progress: z.number().optional(),
+      completedTasks: z.array(z.string()).optional(),
+      pendingTasks: z.array(z.string()).optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { cerebrasChat } = await import("./cerebras.server");
+      const system = `너는 학부모용 자녀 입시 현황 리포터다. 자녀의 입시 준비 상황을 학부모가 이해하기 쉽게 설명한다.
+
+${FORMAT_RULES}
+
+출력 구조 (반드시 이 마크다운 구조 사용):
+
+## 📋 주간 입시 현황 리포트
+
+### 👤 자녀 현황 요약
+> 학년·목표·현재 상황을 **학부모 시각**에서 2~3줄 요약.
+
+### 📈 이번 주 진행률
+진행률: <span style="color:#22d3ee">**OO%**</span>
+
+**완료한 항목** ✅
+- ...
+
+**남은 항목** ⏳
+- ...
+
+### 🎯 다음 주 우선 과제
+| 우선순위 | 과제 | 예상 소요 시간 | 중요도 |
+|---|---|---|---|
+| 1 | ... | ... | ⭐⭐⭐ |
+| 2 | ... | ... | ⭐⭐ |
+
+### 💬 학부모님께 드리는 조언
+> 이 시기 학부모님이 자녀에게 해줄 수 있는 **구체적 지원 방법** 3가지.
+1. ...
+2. ...
+3. ...
+
+### ⚠️ 주의사항
+> 이번 달 놓치면 안 되는 입시 일정이나 체크포인트.
+
+---
+*본 리포트는 AI가 생성한 참고용 자료입니다.*`;
+
+      const completedStr = data.completedTasks?.join(", ") || "없음";
+      const pendingStr = data.pendingTasks?.join(", ") || "없음";
+      const user = `[자녀 프로필]\n${profileBlock(data.profile)}\n\n[현재 진행률] ${data.progress ?? 0}%\n[완료 과제] ${completedStr}\n[미완료 과제] ${pendingStr}\n\n학부모님을 위한 주간 리포트를 작성해줘.`;
+
+      const reply = await cerebrasChat({
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature: 0.4,
+        max_tokens: 1800,
+      });
+      return { reply };
+    } catch (error) {
+      normalizeAiError(error);
+    }
+  });

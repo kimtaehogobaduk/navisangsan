@@ -1,12 +1,13 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { Compass, MessageCircle, FileText, Target, Home } from "lucide-react";
+import { Compass, MessageCircle, FileText, Target, Home, MoreHorizontal } from "lucide-react";
 
 const nav = [
   { to: "/dashboard", label: "로드맵", icon: Home },
   { to: "/coach", label: "AI 코치", icon: MessageCircle },
   { to: "/saengbu", label: "생기부", icon: FileText },
   { to: "/jeonhyeong", label: "전형분석", icon: Target },
+  { to: "/more", label: "더보기", icon: MoreHorizontal },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -19,9 +20,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-brand text-brand-foreground shadow-glow">
               <Compass className="h-4 w-4" />
             </div>
-            <span className="text-base font-bold tracking-tight">
-              NAVI
-            </span>
+            <span className="text-base font-bold tracking-tight">NAVI</span>
           </Link>
           <Link
             to="/onboarding"
@@ -37,7 +36,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       <nav className="fixed inset-x-0 bottom-0 z-30 glass">
         <div className="mx-auto flex max-w-4xl items-stretch justify-around px-2">
           {nav.map((item) => {
-            const active = pathname.startsWith(item.to);
+            const active =
+              pathname === item.to ||
+              (item.to === "/more" &&
+                ["/subjects", "/curriculum", "/jasoseo", "/interview", "/parent"].some((p) =>
+                  pathname.startsWith(p),
+                ));
             const Icon = item.icon;
             return (
               <Link

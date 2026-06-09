@@ -6,6 +6,21 @@ function normalizeAiError(error: unknown): never {
   throw new Error(message);
 }
 
+// 모든 AI 응답에 강제할 마크다운/HTML 서식 규칙
+const FORMAT_RULES = `[출력 서식 규칙 — 반드시 준수]
+응답은 반드시 GitHub-Flavored Markdown + 일부 HTML 으로 작성한다. 클라이언트가 자동 렌더링하므로 마크다운 기호를 그대로 출력해야 한다.
+- 큰 제목: # 제목  /  중제목: ## 제목  /  소제목: ### 제목
+- 볼드: **굵게**  /  이탤릭(기울임): *기울임*  /  취소선: ~~취소~~
+- 밑줄: <u>밑줄</u>  /  색 강조: <span style="color:#22d3ee">중요</span> (HEX 사용)
+- 인용/팁 박스: > 인용 내용 (여러 줄 가능)
+- 리스트: - 항목  또는  1. 항목,  체크리스트: - [ ] 할 일 / - [x] 완료
+- 표: | 헤더1 | 헤더2 |\n|---|---|\n| 값1 | 값2 |  형식 (정렬 가능한 데이터는 반드시 표로)
+- 코드: \`inline\`  또는  \`\`\`언어\n블록\n\`\`\`
+- 별표 강조 항목: ⭐, ⭐⭐, ⭐⭐⭐ 처럼 이모지 별로 시각화
+- 구분선: --- 한 줄
+- 텍스트 크기는 헤딩 레벨(#,##,###,####)로 조절. 핵심은 헤딩 + 볼드 + 색으로 강조.
+- HTML 은 <u>, <span style="color:...">, <br/> 만 허용. 그 외 태그/스크립트 금지.`;
+
 const MessageSchema = z.object({
   role: z.enum(["system", "user", "assistant"]),
   content: z.string(),

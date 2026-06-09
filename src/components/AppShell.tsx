@@ -1,6 +1,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import { Compass, MessageCircle, FileText, Target, Home, MoreHorizontal } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
+import { Compass, MessageCircle, FileText, Target, Home, MoreHorizontal, LogIn, ShieldCheck, LogOut } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const nav = [
   { to: "/dashboard", label: "로드맵", icon: Home },
@@ -12,6 +13,35 @@ const nav = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIsAdmin(sessionStorage.getItem("navi.admin") === "true");
+
+    try {
+      supabase.auth.getSession().then(({ data }) => {
+        setUserEmail(data.session?.user?.email ?? null);
+      });
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUserEmail(session?.user?.email ?? null);
+      });
+      return () => subscription.unsubscribe();
+    } catch {
+      // Supabase not configured
+    }
+  }, []);
+
+  async function handleLogout() {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ignore
+    }
+    setUserEmail(null);
+  }
+
   return (
     <div className="min-h-screen pb-24">
       <header className="sticky top-0 z-30 glass">
@@ -22,12 +52,46 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             <span className="text-base font-bold tracking-tight">NAVI</span>
           </Link>
-          <Link
-            to="/onboarding"
-            className="text-xs text-muted-foreground transition hover:text-foreground"
-          >
-            프로필 수정
-          </Link>
+
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-400 transition hover:bg-amber-500/20"
+              >
+                <ShieldCheck className="h-3 w-3" />
+                관리자
+              </Link>
+            )}
+            {userEmail ? (
+              <div className="flex items-center gap-2">
+                <span className="hidden text-[11px] text-muted-foreground md:block">
+                  {userEmail.split("@")[0]}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground transition hover:text-foreground"
+                >
+                  <LogOut className="h-3 w-3" />
+                  <span className="hidden sm:inline">로그아웃</span>
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground transition hover:text-foreground"
+              >
+                <LogIn className="h-3 w-3" />
+                로그인
+              </Link>
+            )}
+            <Link
+              to="/onboarding"
+              className="text-xs text-muted-foreground transition hover:text-foreground"
+            >
+              프로필 수정
+            </Link>
+          </div>
         </div>
       </header>
 

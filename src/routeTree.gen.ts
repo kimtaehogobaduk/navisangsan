@@ -14,12 +14,14 @@ import { Route as SaengbuRouteImport } from './routes/saengbu'
 import { Route as ParentRouteImport } from './routes/parent'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as MoreRouteImport } from './routes/more'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as JeonhyeongRouteImport } from './routes/jeonhyeong'
 import { Route as JasoseoRouteImport } from './routes/jasoseo'
 import { Route as InterviewRouteImport } from './routes/interview'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CurriculumRouteImport } from './routes/curriculum'
 import { Route as CoachRouteImport } from './routes/coach'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 
 const SubjectsRoute = SubjectsRouteImport.update({
@@ -45,6 +47,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const MoreRoute = MoreRouteImport.update({
   id: '/more',
   path: '/more',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const JeonhyeongRoute = JeonhyeongRouteImport.update({
@@ -77,6 +84,11 @@ const CoachRoute = CoachRouteImport.update({
   path: '/coach',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -85,12 +97,14 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/coach': typeof CoachRoute
   '/curriculum': typeof CurriculumRoute
   '/dashboard': typeof DashboardRoute
   '/interview': typeof InterviewRoute
   '/jasoseo': typeof JasoseoRoute
   '/jeonhyeong': typeof JeonhyeongRoute
+  '/login': typeof LoginRoute
   '/more': typeof MoreRoute
   '/onboarding': typeof OnboardingRoute
   '/parent': typeof ParentRoute
@@ -99,12 +113,14 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/coach': typeof CoachRoute
   '/curriculum': typeof CurriculumRoute
   '/dashboard': typeof DashboardRoute
   '/interview': typeof InterviewRoute
   '/jasoseo': typeof JasoseoRoute
   '/jeonhyeong': typeof JeonhyeongRoute
+  '/login': typeof LoginRoute
   '/more': typeof MoreRoute
   '/onboarding': typeof OnboardingRoute
   '/parent': typeof ParentRoute
@@ -114,12 +130,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/coach': typeof CoachRoute
   '/curriculum': typeof CurriculumRoute
   '/dashboard': typeof DashboardRoute
   '/interview': typeof InterviewRoute
   '/jasoseo': typeof JasoseoRoute
   '/jeonhyeong': typeof JeonhyeongRoute
+  '/login': typeof LoginRoute
   '/more': typeof MoreRoute
   '/onboarding': typeof OnboardingRoute
   '/parent': typeof ParentRoute
@@ -130,12 +148,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/coach'
     | '/curriculum'
     | '/dashboard'
     | '/interview'
     | '/jasoseo'
     | '/jeonhyeong'
+    | '/login'
     | '/more'
     | '/onboarding'
     | '/parent'
@@ -144,12 +164,14 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/coach'
     | '/curriculum'
     | '/dashboard'
     | '/interview'
     | '/jasoseo'
     | '/jeonhyeong'
+    | '/login'
     | '/more'
     | '/onboarding'
     | '/parent'
@@ -158,12 +180,14 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/coach'
     | '/curriculum'
     | '/dashboard'
     | '/interview'
     | '/jasoseo'
     | '/jeonhyeong'
+    | '/login'
     | '/more'
     | '/onboarding'
     | '/parent'
@@ -173,12 +197,14 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   CoachRoute: typeof CoachRoute
   CurriculumRoute: typeof CurriculumRoute
   DashboardRoute: typeof DashboardRoute
   InterviewRoute: typeof InterviewRoute
   JasoseoRoute: typeof JasoseoRoute
   JeonhyeongRoute: typeof JeonhyeongRoute
+  LoginRoute: typeof LoginRoute
   MoreRoute: typeof MoreRoute
   OnboardingRoute: typeof OnboardingRoute
   ParentRoute: typeof ParentRoute
@@ -223,6 +249,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MoreRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/jeonhyeong': {
       id: '/jeonhyeong'
       path: '/jeonhyeong'
@@ -265,6 +298,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CoachRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -277,12 +317,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   CoachRoute: CoachRoute,
   CurriculumRoute: CurriculumRoute,
   DashboardRoute: DashboardRoute,
   InterviewRoute: InterviewRoute,
   JasoseoRoute: JasoseoRoute,
   JeonhyeongRoute: JeonhyeongRoute,
+  LoginRoute: LoginRoute,
   MoreRoute: MoreRoute,
   OnboardingRoute: OnboardingRoute,
   ParentRoute: ParentRoute,

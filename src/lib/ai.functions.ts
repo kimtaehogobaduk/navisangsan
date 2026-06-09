@@ -209,44 +209,77 @@ ${FORMAT_RULES}
     }
   });
 
-// ============ 월별 학습 로드맵 ============
+// ============ 월별 학습 로드맵 (초상세 버전) ============
 export const generateRoadmap = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ profile: ProfileSchema.optional() }))
+  .inputValidator(
+    z.object({
+      profile: ProfileSchema.optional(),
+      trainingContext: z.string().optional(),
+    }),
+  )
   .handler(async ({ data }) => {
     try {
       const { cerebrasChat } = await import("./cerebras.server");
-      const system = `너는 한국 입시 학습 코치다. 학생 프로필 기반으로 향후 3개월 월별 실행 로드맵을 만든다.
-출력 형식 (반드시 JSON):
+      const training = data.trainingContext ?? "";
+      const system = `너는 대한민국 최고의 입시 코치다. 학생 프로필을 분석해 향후 3개월 초상세 실행 로드맵을 JSON으로 출력한다.
+카테고리는 반드시 다음 중 하나: "academics"(내신), "exam"(수능), "records"(생기부), "essay"(자소서·면접), "activity"(과외활동), "mental"(멘탈·건강)
+priority는 "high" | "medium" | "low", estimatedHours는 숫자.
+subtasks는 최소 2개, 각 subtask에는 text(작업명)와 detail(구체적 방법/팁)을 포함.
+반드시 각 월에 4주(week 1~4)를 나눠 tasks를 분배하고, 각 주마다 2~4개 tasks를 배정한다.
+tasks의 id는 "m{monthIndex}-w{weekNum}-t{taskIndex}" 형태.${training}
+
+출력 형식 (순수 JSON만, 다른 텍스트 금지):
 {
   "months": [
     {
-      "title": "1개월차: ...",
-      "focus": "이번 달 핵심 목표 한 줄",
-      "tasks": ["과제1", "과제2", "과제3", "과제4"]
+      "title": "1개월차: 기초 점검 & 전략 수립",
+      "focus": "핵심 목표 한 줄 — 학생 상황 반영",
+      "theme": "#6366f1",
+      "milestones": ["중간 성과 1", "중간 성과 2", "중간 성과 3"],
+      "weeks": [
+        {
+          "weekNum": 1,
+          "focus": "1주차 핵심 행동",
+          "tasks": [
+            {
+              "id": "m0-w1-t0",
+              "title": "수학 취약 단원 진단",
+              "detail": "EBS 진단 테스트로 취약 단원 파악 후 우선순위 설정. 오답 패턴을 3가지 이상 분류한다.",
+              "category": "academics",
+              "week": 1,
+              "priority": "high",
+              "estimatedHours": 3,
+              "subtasks": [
+                { "text": "EBS 단원별 진단 테스트", "detail": "각 단원 30분씩, 총 3개 단원 진단" },
+                { "text": "오답 원인 분류표 작성", "detail": "개념 부족 / 실수 / 시간 부족 으로 구분" }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
-}
-JSON 외 어떤 텍스트도 출력하지 마라.`;
+}`;
 
-      const user = `[학생 프로필]\n${profileBlock(data.profile)}`;
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n위 학생의 상황에 꼭 맞는 초상세 3개월 로드맵을 작성해줘. 실제 대치동 컨설턴트라면 줄 법한 구체적인 조언을 담아라.`;
       const reply = await cerebrasChat({
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
         ],
         temperature: 0.3,
-        max_tokens: 1500,
+        max_tokens: 3500,
       });
 
       try {
         const start = reply.indexOf("{");
         const end = reply.lastIndexOf("}");
         const parsed = JSON.parse(reply.slice(start, end + 1)) as {
-          months: Array<{ title: string; focus: string; tasks: string[] }>;
+          months: import("./roadmap").RoadmapMonth[];
         };
         return { months: parsed.months };
       } catch {
-        return { months: [] as Array<{ title: string; focus: string; tasks: string[] }> };
+        return { months: [] as import("./roadmap").RoadmapMonth[] };
       }
     } catch (error) {
       normalizeAiError(error);

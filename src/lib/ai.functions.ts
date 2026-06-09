@@ -304,7 +304,7 @@ ${FORMAT_RULES}
     }
   });
 
-// ============ 월별 학습 로드맵 (공부 전략 + 생기부 전략 분리 호출) ============
+// ============ 3개월 맞춤 입시 로드맵 (단일 구조화 JSON 호출) ============
 export const generateRoadmap = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
@@ -318,101 +318,38 @@ export const generateRoadmap = createServerFn({ method: "POST" })
       const training = data.trainingContext ? `\n[추가 지식]\n${data.trainingContext}` : "";
       const profileStr = profileBlock(data.profile);
 
-      type AiTask = {
-        title: string;
-        detail: string;
-        category: string;
-        week: number;
-        priority: string;
-        hours: number;
-        tips: string[];
-      };
+      const SYSTEM = `한국 대입 전략 코치. 학생 프로필 분석 → 3개월 맞춤 입시 로드맵을 JSON으로만 출력. 다른 텍스트 없이 유효한 JSON 객체만 반환.
+규칙: 취약 과목 반드시 반영, 학년·계열·목표대학 고려, 현실적 전략, 구체적 대학명 포함.
+checkItems: 월당 12개, category = study/exam/records/essay/activity/mental 중 하나, week = 1~4, priority = high/medium/low.
+${training}
+출력 JSON 구조 (이 형식 그대로):
+{"overview":{"diagnosis":"현황진단 1-2문장","strengths":["강점1","강점2","강점3"],"weaknesses":["약점1","약점2","약점3"],"coreStrategy":"핵심전략 1문장","applicationRatio":"수시OO%/정시OO%"},"months":[{"phase":"단기","monthLabel":"1개월차","theme":"#6366f1","keyEvents":["주요일정1","주요일정2","주요일정3"],"studyStrategy":{"korean":"국어전략 2문장","math":"수학전략 2문장","english":"영어전략 2문장","scienceOrSociety":"탐구/사회전략 2문장","weakSubject":"취약과목명: 보완법 2문장","weeklyHours":40},"examStrategy":{"focus":"이달 수능 핵심포인트","mockExam":"모의고사 활용전략","practiceType":"문제유형 연습방향"},"recordStrategy":{"seukuk":["세특아이디어1","세특아이디어2","세특아이디어3"],"activity":"동아리/자율활동전략","careerActivity":"진로활동전략","keyKeyword":"이달 생기부 핵심키워드"},"essayStrategy":"자소서/면접전략","mentalStrategy":"멘탈·건강관리","priorities":["🔥 긴급: 우선순위1","📚 중요: 우선순위2","✍️ 필수: 우선순위3"],"checkItems":[{"id":"m0-c0","category":"study","text":"과제명","week":1,"priority":"high","hours":2},{"id":"m0-c1","category":"study","text":"과제명","week":2,"priority":"medium","hours":1},{"id":"m0-c2","category":"study","text":"과제명","week":3,"priority":"high","hours":2},{"id":"m0-c3","category":"exam","text":"과제명","week":1,"priority":"high","hours":2},{"id":"m0-c4","category":"exam","text":"과제명","week":3,"priority":"medium","hours":2},{"id":"m0-c5","category":"records","text":"과제명","week":1,"priority":"high","hours":3},{"id":"m0-c6","category":"records","text":"과제명","week":2,"priority":"high","hours":2},{"id":"m0-c7","category":"records","text":"과제명","week":4,"priority":"medium","hours":2},{"id":"m0-c8","category":"activity","text":"과제명","week":2,"priority":"medium","hours":2},{"id":"m0-c9","category":"activity","text":"과제명","week":4,"priority":"low","hours":1},{"id":"m0-c10","category":"mental","text":"과제명","week":1,"priority":"medium","hours":1},{"id":"m0-c11","category":"essay","text":"과제명","week":3,"priority":"low","hours":1}]},{"phase":"중기","monthLabel":"2개월차","theme":"#8b5cf6","keyEvents":[...],"studyStrategy":{...},"examStrategy":{...},"recordStrategy":{...},"essayStrategy":"...","mentalStrategy":"...","priorities":["...","...","..."],"checkItems":[{"id":"m1-c0",...},...]},{"phase":"장기","monthLabel":"3개월차","theme":"#06b6d4","keyEvents":[...],"studyStrategy":{...},"examStrategy":{...},"recordStrategy":{...},"essayStrategy":"...","mentalStrategy":"...","priorities":["...","...","..."],"checkItems":[{"id":"m2-c0",...},...]}],"applicationStrategy":{"suSi":[{"type":"학생부종합","suitability":"⭐⭐⭐⭐","reason":"이유"},{"type":"학생부교과","suitability":"⭐⭐⭐","reason":"이유"},{"type":"논술","suitability":"⭐⭐","reason":"이유"},{"type":"실기/특기","suitability":"⭐","reason":"이유"}],"recommendedApps":[{"card":1,"university":"대학명","major":"학과명","type":"전형","note":"도전권"},{"card":2,"university":"대학명","major":"학과명","type":"전형","note":"도전권"},{"card":3,"university":"대학명","major":"학과명","type":"전형","note":"적정권"},{"card":4,"university":"대학명","major":"학과명","type":"전형","note":"적정권"},{"card":5,"university":"대학명","major":"학과명","type":"전형","note":"안정권"},{"card":6,"university":"대학명","major":"학과명","type":"전형","note":"안정권"}],"jungSiStrategy":"정시전략 2-3문장"}}`;
 
-      // JSON 배열만 파싱하는 헬퍼
-      function parseTaskArray(raw: string, monthIdx: number, prefix: string): import("./roadmap").RoadmapTask[] {
+      const user = `[학생 프로필]\n${profileStr}\n\n위 학생의 3개월 입시 로드맵 JSON을 출력하라. JSON만 출력.`;
+
+      const raw = await cerebrasChat({
+        messages: [
+          { role: "system", content: SYSTEM },
+          { role: "user", content: user },
+        ],
+        temperature: 0.3,
+        max_tokens: 4500,
+      });
+
+      function parseRoadmapJson(str: string): import("./roadmap").RoadmapData | null {
         try {
-          const s = raw.indexOf("[");
-          const e = raw.lastIndexOf("]");
-          if (s === -1 || e === -1) return [];
-          const arr = JSON.parse(raw.slice(s, e + 1)) as AiTask[];
-          return arr.map((t, i) => ({
-            id: `m${monthIdx}-${prefix}-t${i}`,
-            title: String(t.title ?? ""),
-            detail: String(t.detail ?? ""),
-            category: (["academics","exam","records","essay","activity","mental"].includes(t.category)
-              ? t.category : "academics") as import("./roadmap").RoadmapTask["category"],
-            week: Number(t.week) >= 1 && Number(t.week) <= 4 ? Number(t.week) : 1,
-            priority: (["high","medium","low"].includes(t.priority)
-              ? t.priority : "medium") as import("./roadmap").RoadmapTask["priority"],
-            estimatedHours: Number(t.hours) || 2,
-            tips: Array.isArray(t.tips) ? t.tips.map(String) : [],
-          }));
-        } catch {
-          return [];
-        }
+          const s = str.indexOf("{");
+          const e = str.lastIndexOf("}");
+          if (s === -1 || e === -1) return null;
+          return JSON.parse(str.slice(s, e + 1)) as import("./roadmap").RoadmapData;
+        } catch { return null; }
       }
 
-      // 시스템 프롬프트 — 매우 짧고 명확하게
-      const SYSTEM = `입시 코치. JSON 배열만 출력. 다른 텍스트 금지.
-형식: [{"title":"제목","detail":"구체적 방법 2문장","category":"academics","week":1,"priority":"high","hours":2,"tips":["팁1","팁2"]}]
-category 값: academics(내신)/exam(수능)/records(생기부세특)/essay(자소서면접)/activity(과외활동)/mental(멘탈건강)
-priority: high/medium/low, week: 1~4, hours: 숫자${training}`;
-
-      const MONTH_META = [
-        { idx: 0, label: "1개월차", theme: "#6366f1",
-          studyFocus: "기초 점검 — 내신·수능 취약단원 진단 및 학습 전략 수립",
-          recordFocus: "생기부 방향 설계 — 세특 주제 선정 및 첫 탐구 시작" },
-        { idx: 1, label: "2개월차", theme: "#8b5cf6",
-          studyFocus: "본격 실행 — 내신 심화 + 수능 기출 집중 풀이",
-          recordFocus: "생기부 구체화 — 세특 초안 작성 및 활동 실행" },
-        { idx: 2, label: "3개월차", theme: "#06b6d4",
-          studyFocus: "마무리 점검 — 모의고사 분석 + 부족 단원 반복",
-          recordFocus: "생기부 완성 — 자소서 준비 및 활동 마무리 정리" },
-      ];
-
-      const months: import("./roadmap").RoadmapMonth[] = [];
-      const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-      // 6개 호출 완전 순차 처리 + 호출 사이 1초 딜레이 — rate limit 방지
-      for (let mi = 0; mi < MONTH_META.length; mi++) {
-        const meta = MONTH_META[mi];
-        const studyUser = `학생: ${profileStr}\n\n[${meta.label} 공부 전략: ${meta.studyFocus}]\n내신(academics), 수능(exam), 멘탈(mental) 과제 각 주 2개씩 총 8개를 JSON 배열로 출력.`;
-        const recordUser = `학생: ${profileStr}\n\n[${meta.label} 생기부 전략: ${meta.recordFocus}]\n생기부세특(records), 자소서(essay), 과외활동(activity) 과제 각 주 2개씩 총 8개를 JSON 배열로 출력.`;
-
-        if (mi > 0) await delay(1200); // 앞 달 처리 후 대기
-        const studyReply = await cerebrasChat({
-          messages: [{ role: "system", content: SYSTEM }, { role: "user", content: studyUser }],
-          temperature: 0.3, max_tokens: 900,
-        });
-        await delay(1200); // 공부 → 생기부 사이 대기
-        const recordReply = await cerebrasChat({
-          messages: [{ role: "system", content: SYSTEM }, { role: "user", content: recordUser }],
-          temperature: 0.3, max_tokens: 900,
-        });
-
-        const studyTasks = parseTaskArray(studyReply, meta.idx, "study");
-        const recordTasks = parseTaskArray(recordReply, meta.idx, "record");
-        const allTasks = [...studyTasks, ...recordTasks];
-
-        if (!allTasks.length) continue;
-
-        months.push({
-          title: `${meta.label}: ${meta.studyFocus.split("—")[0].trim()}`,
-          focus: meta.studyFocus.split("—")[1]?.trim() ?? meta.studyFocus,
-          studyFocus: meta.studyFocus,
-          recordFocus: meta.recordFocus,
-          theme: meta.theme,
-          milestones: [
-            meta.studyFocus.split("—")[1]?.trim() ?? "학습 계획 수립",
-            meta.recordFocus.split("—")[1]?.trim() ?? "생기부 전략 수립",
-            "다음 달 준비 완료",
-          ],
-          tasks: allTasks,
-        });
+      const parsed = parseRoadmapJson(raw);
+      if (!parsed?.months?.length) {
+        throw new Error("로드맵 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
       }
-
-      if (!months.length) throw new Error("로드맵 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
-      return { months };
+      return { roadmap: parsed };
     } catch (error) {
       normalizeAiError(error);
     }

@@ -226,10 +226,22 @@ function Dashboard() {
         )}
 
         {loading && !months.length && (
-          <div className="mt-4 rounded-2xl border border-border bg-surface p-10 text-center">
+          <div className="mt-4 rounded-2xl border border-border bg-surface p-8 text-center">
             <Loader2 className="mx-auto h-8 w-8 animate-spin text-brand" />
-            <p className="mt-3 text-sm text-muted-foreground">Cerebras AI가 초상세 로드맵 생성 중…</p>
-            <p className="mt-1 text-xs text-muted-foreground/60">주차별 세부 과제·마인드맵 구조 설계 중</p>
+            <p className="mt-3 text-sm font-medium">Cerebras AI가 3개월 로드맵 생성 중…</p>
+            <p className="mt-1 text-xs text-muted-foreground/60">3개월을 동시에 병렬 생성하고 있어요</p>
+            <div className="mt-5 flex justify-center gap-3">
+              {["1개월차", "2개월차", "3개월차"].map((label, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground"
+                  style={{ animationDelay: `${i * 0.3}s` }}
+                >
+                  <Loader2 className="h-3 w-3 animate-spin" style={{ animationDelay: `${i * 0.2}s` }} />
+                  {label}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

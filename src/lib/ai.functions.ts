@@ -209,7 +209,7 @@ ${FORMAT_RULES}
     }
   });
 
-// ============ 월별 학습 로드맵 (초상세 버전) ============
+// ============ 월별 학습 로드맵 (월별 3회 분할 호출) ============
 export const generateRoadmap = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
@@ -221,66 +221,59 @@ export const generateRoadmap = createServerFn({ method: "POST" })
     try {
       const { cerebrasChat } = await import("./cerebras.server");
       const training = data.trainingContext ?? "";
-      const system = `너는 대한민국 최고의 입시 코치다. 학생 프로필을 분석해 향후 3개월 초상세 실행 로드맵을 JSON으로 출력한다.
-카테고리는 반드시 다음 중 하나: "academics"(내신), "exam"(수능), "records"(생기부), "essay"(자소서·면접), "activity"(과외활동), "mental"(멘탈·건강)
-priority는 "high" | "medium" | "low", estimatedHours는 숫자.
-subtasks는 최소 2개, 각 subtask에는 text(작업명)와 detail(구체적 방법/팁)을 포함.
-반드시 각 월에 4주(week 1~4)를 나눠 tasks를 분배하고, 각 주마다 2~4개 tasks를 배정한다.
-tasks의 id는 "m{monthIndex}-w{weekNum}-t{taskIndex}" 형태.${training}
+      const profileStr = profileBlock(data.profile);
 
-출력 형식 (순수 JSON만, 다른 텍스트 금지):
-{
-  "months": [
-    {
-      "title": "1개월차: 기초 점검 & 전략 수립",
-      "focus": "핵심 목표 한 줄 — 학생 상황 반영",
-      "theme": "#6366f1",
-      "milestones": ["중간 성과 1", "중간 성과 2", "중간 성과 3"],
-      "weeks": [
-        {
-          "weekNum": 1,
-          "focus": "1주차 핵심 행동",
-          "tasks": [
-            {
-              "id": "m0-w1-t0",
-              "title": "수학 취약 단원 진단",
-              "detail": "EBS 진단 테스트로 취약 단원 파악 후 우선순위 설정. 오답 패턴을 3가지 이상 분류한다.",
-              "category": "academics",
-              "week": 1,
-              "priority": "high",
-              "estimatedHours": 3,
-              "subtasks": [
-                { "text": "EBS 단원별 진단 테스트", "detail": "각 단원 30분씩, 총 3개 단원 진단" },
-                { "text": "오답 원인 분류표 작성", "detail": "개념 부족 / 실수 / 시간 부족 으로 구분" }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}`;
+      const MONTH_META = [
+        { idx: 0, label: "1개월차", theme: "#6366f1", phase: "기초 점검 & 전략 수립 — 현재 상태 진단 후 우선순위를 정하는 달" },
+        { idx: 1, label: "2개월차", theme: "#8b5cf6", phase: "본격 실행 — 내신·수능·생기부를 동시에 끌어올리는 달" },
+        { idx: 2, label: "3개월차", theme: "#06b6d4", phase: "점검 & 마무리 — 부족한 부분을 보완하고 다음 분기를 준비하는 달" },
+      ];
 
-      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n위 학생의 상황에 꼭 맞는 초상세 3개월 로드맵을 작성해줘. 실제 대치동 컨설턴트라면 줄 법한 구체적인 조언을 담아라.`;
-      const reply = await cerebrasChat({
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        temperature: 0.3,
-        max_tokens: 3500,
-      });
+      const systemBase = `너는 대한민국 최고의 입시 코치다. 학생 프로필 기반으로 한 달치 초상세 실행 로드맵을 JSON으로만 출력한다.
 
-      try {
-        const start = reply.indexOf("{");
-        const end = reply.lastIndexOf("}");
-        const parsed = JSON.parse(reply.slice(start, end + 1)) as {
-          months: import("./roadmap").RoadmapMonth[];
-        };
-        return { months: parsed.months };
-      } catch {
-        return { months: [] as import("./roadmap").RoadmapMonth[] };
-      }
+[규칙]
+- 카테고리: "academics"(내신) | "exam"(수능) | "records"(생기부) | "essay"(자소서·면접) | "activity"(과외활동) | "mental"(멘탈·건강)
+- priority: "high" | "medium" | "low"
+- estimatedHours: 숫자
+- subtasks: 2~3개, 각각 text(작업명)와 detail(구체적 실행 방법/팁) 포함
+- 4주(weekNum 1~4)에 나눠 배정, 각 주 2~4개 tasks
+- task id: "m{monthIdx}-w{weekNum}-t{taskIndex}" (예: "m0-w1-t0")
+- 학생 프로필에 꼭 맞는 내용, 대치동 컨설턴트 수준의 구체성${training}
+
+출력 형식 (순수 JSON 1개 객체, 다른 텍스트 금지):
+{"title":"…","focus":"…","theme":"…","milestones":["…","…","…"],"weeks":[{"weekNum":1,"focus":"…","tasks":[{"id":"m0-w1-t0","title":"…","detail":"…","category":"academics","week":1,"priority":"high","estimatedHours":2,"subtasks":[{"text":"…","detail":"…"},{"text":"…","detail":"…"}]}]}]}`;
+
+      // 3개월 병렬 생성
+      const results = await Promise.all(
+        MONTH_META.map(async (meta) => {
+          const user = `[학생 프로필]\n${profileStr}\n\n[이번 달 단계] ${meta.label}: ${meta.phase}\n[월 인덱스] ${meta.idx} (id에 m${meta.idx} 사용)\n[테마 색상] "${meta.theme}"\n\n이 학생의 ${meta.label} 로드맵을 JSON으로 출력해줘.`;
+
+          try {
+            const reply = await cerebrasChat({
+              messages: [
+                { role: "system", content: systemBase },
+                { role: "user", content: user },
+              ],
+              temperature: 0.3,
+              max_tokens: 1800,
+            });
+
+            const start = reply.indexOf("{");
+            const end = reply.lastIndexOf("}");
+            if (start === -1 || end === -1) return null;
+            const parsed = JSON.parse(reply.slice(start, end + 1)) as import("./roadmap").RoadmapMonth;
+            // theme 강제 지정 (AI가 바꿀 수 있으므로)
+            parsed.theme = meta.theme;
+            return parsed;
+          } catch {
+            return null;
+          }
+        }),
+      );
+
+      const months = results.filter((m): m is import("./roadmap").RoadmapMonth => m !== null);
+      if (!months.length) throw new Error("로드맵 생성 실패 — 다시 시도해주세요.");
+      return { months };
     } catch (error) {
       normalizeAiError(error);
     }

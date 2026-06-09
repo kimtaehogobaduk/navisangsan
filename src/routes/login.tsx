@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Compass, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+import { loadProfile } from "@/lib/profile";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/login")({
@@ -216,7 +217,10 @@ function LoginPage() {
 
         <button
           type="button"
-          onClick={() => navigate({ to: "/onboarding" })}
+          onClick={() => {
+            const existing = loadProfile();
+            navigate({ to: existing ? "/dashboard" : "/onboarding" });
+          }}
           className="mt-4 w-full rounded-2xl border border-border bg-surface py-3 text-sm font-medium text-muted-foreground transition hover:bg-surface-elevated hover:text-foreground"
         >
           비회원으로 이용하기

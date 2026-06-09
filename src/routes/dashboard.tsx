@@ -9,7 +9,7 @@ import { getTrainingContext } from "@/lib/training";
 import { generateRoadmap } from "@/lib/ai.functions";
 import {
   FileText, MessageCircle, Sparkles, Target, RefreshCw, Loader2,
-  CheckCircle2, BarChart3, AlertCircle,
+  CheckCircle2, BarChart3, AlertCircle, Settings,
 } from "lucide-react";
 
 export const Route = createFileRoute("/dashboard")({
@@ -102,8 +102,16 @@ function Dashboard() {
               {profile.targetMajor && ` ${profile.targetMajor}`}
             </p>
           </div>
-          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-brand text-brand-foreground shadow-glow">
-            <Sparkles className="h-6 w-6" />
+          <div className="flex flex-col items-end gap-2">
+            <div className="grid h-14 w-14 place-items-center rounded-2xl bg-gradient-brand text-brand-foreground shadow-glow">
+              <Sparkles className="h-6 w-6" />
+            </div>
+            <Link
+              to="/onboarding"
+              className="flex items-center gap-1 rounded-full border border-border bg-surface/60 px-2.5 py-1 text-[10px] font-medium text-muted-foreground transition hover:bg-surface-elevated hover:text-foreground"
+            >
+              <Settings className="h-3 w-3" /> 프로필 수정
+            </Link>
           </div>
         </div>
 

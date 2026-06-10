@@ -91,13 +91,35 @@ function InterviewPage() {
   // 서버 함수
   const getFeedback = useServerFn(getInterviewFeedback);
   const genQuestions = useServerFn(generateEssayInterviewQuestions);
+  const genCommon = useServerFn(generateCommonInterviewQuestions);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const loadCommonQuestions = async (p: StudentProfile, force = false) => {
+    const cacheKey = `navi.interview.common.v2.${p.school}.${p.targetMajor}`;
+    if (!force) {
+      const cached = typeof window !== "undefined" ? localStorage.getItem(cacheKey) : null;
+      if (cached) { try { setCommonQuestions(JSON.parse(cached)); return; } catch { /* */ } }
+    }
+    setRegeneratingCommon(true);
+    try {
+      const res = await genCommon({ data: { profile: p } });
+      const qs = res?.questions ?? [];
+      if (qs.length >= 5) {
+        setCommonQuestions(qs);
+        setQIdx(0);
+        if (typeof window !== "undefined") localStorage.setItem(cacheKey, JSON.stringify(qs));
+      }
+    } catch { /* fallback 유지 */ }
+    finally { setRegeneratingCommon(false); }
+  };
 
   useEffect(() => {
     const p = loadProfile();
     if (!p) { (markProfileRequired("면접 시뮬레이터"), navigate({ to: "/onboarding" })); return; }
     setProfile(p);
+    loadCommonQuestions(p);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   useEffect(() => {

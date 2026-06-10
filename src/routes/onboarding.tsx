@@ -444,7 +444,7 @@ function Onboarding() {
         )}
 
         {/* ── STEP 3: 선택과목 ── */}
-        {((step === 3 && isHighSchool) || (step === 2 && !isHighSchool)) && (
+        {currentStepKey === "elective" && (
           <div className="space-y-5">
             <SectionTitle>선택과목</SectionTitle>
             <p className="text-xs text-muted-foreground -mt-4">

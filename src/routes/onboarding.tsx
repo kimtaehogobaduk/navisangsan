@@ -6,6 +6,7 @@ import {
 } from "@/lib/profile";
 import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles, Plus, X, Info } from "lucide-react";
 import { consumeProfileRequired } from "@/lib/require-profile";
+import { researchSchoolFn } from "@/lib/school.functions";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
@@ -218,6 +219,10 @@ function Onboarding() {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     saveProfile({ ...p, customInterest: customInterestInput });
+    if (p.school?.trim()) {
+      // 비동기 백그라운드 학교 조사 (대기하지 않음)
+      researchSchoolFn({ data: { school: p.school.trim(), region: p.region?.trim() || undefined } }).catch(() => {});
+    }
     navigate({ to: "/dashboard" });
   }
 

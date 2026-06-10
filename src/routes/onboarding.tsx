@@ -349,7 +349,7 @@ function Onboarding() {
         )}
 
         {/* ── STEP 1: 모의고사 성적 ── */}
-        {step === 1 && (
+        {currentStepKey === "mock" && (
           <div className="space-y-6">
             <SectionTitle>모의고사 성적</SectionTitle>
             <p className="text-xs text-muted-foreground -mt-4">

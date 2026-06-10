@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
 import { markProfileRequired } from "@/lib/require-profile";
-import { getInterviewFeedback, generateEssayInterviewQuestions } from "@/lib/ai.functions";
+import { getInterviewFeedback, generateEssayInterviewQuestions, generateCommonInterviewQuestions } from "@/lib/ai.functions";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import InterviewVideoPreview, { type VideoPreviewHandle } from "@/components/InterviewVideoPreview";
 import AudioRadarChart from "@/components/AudioRadarChart";

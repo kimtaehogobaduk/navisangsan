@@ -414,7 +414,7 @@ function YoutubeTab() {
       .map((s) => s.trim())
       .filter(Boolean);
     if (!lines.length) { setMsg("유효한 URL이 없습니다."); return; }
-    if (lines.length > 1000) { setMsg("최대 1000개까지 한 번에 등록 가능합니다."); return; }
+    if (lines.length > 10000) { setMsg("최대 10000개까지 한 번에 등록 가능합니다."); return; }
     setSubmitting(true); setMsg("");
     try {
       const r = await queueYoutubeJobsFn({ data: { urls: lines, category } });
@@ -454,7 +454,7 @@ function YoutubeTab() {
       <div className="rounded-2xl border border-border bg-surface p-5">
         <h2 className="text-base font-bold">유튜브 일괄 학습</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          URL을 한 줄에 하나씩 (최대 1000개) 붙여넣으세요. 마크다운 링크/검색결과 형태여도 유튜브 링크만 추출해 큐에 넣습니다.
+          URL을 한 줄에 하나씩 (최대 10000개) 붙여넣으세요. 마크다운 링크/검색결과 형태여도 유튜브 링크만 추출해 큐에 넣습니다.
           창을 닫아도 백그라운드(서버 cron 1분 주기)에서 계속 처리됩니다.
         </p>
         <div className="mt-4 grid gap-3">

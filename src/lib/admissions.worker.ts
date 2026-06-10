@@ -7,7 +7,7 @@
 
 import { initDb, upsertAdmissionsInfo, getLastFetchedAt } from "./db.server";
 
-const REFRESH_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6시간
+const REFRESH_INTERVAL_MS = 60 * 1000; // 1분
 
 type BatchDef = {
   id: string;
@@ -172,7 +172,7 @@ export async function startAdmissionsWorker(): Promise<void> {
       runAllBatches().catch(console.error);
     }, REFRESH_INTERVAL_MS);
 
-    console.log("[AdmissionsWorker] 워커 시작됨 (6시간 주기 자동 갱신)");
+    console.log("[AdmissionsWorker] 워커 시작됨 (1분 주기 자동 갱신)");
   } catch (err) {
     console.error("[AdmissionsWorker] 초기화 실패:", err);
   }

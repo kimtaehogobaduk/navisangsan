@@ -362,3 +362,94 @@ function AdminPage() {
     </div>
   );
 }
+
+function YoutubeTab() {
+  const [urls, setUrls] = useState("");
+  const [category, setCategory] = useState(TRAINING_CATEGORIES[0]);
+  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [jobs, setJobs] = useState<{ id: string; url: string; status: string; error: string | null; created_at: string }[]>([]);
+  const [summary, setSummary] = useState<Record<string, number>>({});
+
+  async function refresh() {
+    try {
+      const r = await listTrainingJobsFn();
+      setJobs(r.jobs as typeof jobs);
+      setSummary(r.summary);
+    } catch { /* */ }
+  }
+
+  useEffect(() => {
+    refresh();
+    const t = setInterval(refresh, 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  async function submit() {
+    const lines = urls.split(/\s+/).map((s) => s.trim()).filter((s) => /^https?:\/\//.test(s));
+    if (!lines.length) { setMsg("유효한 URL이 없습니다."); return; }
+    if (lines.length > 1000) { setMsg("최대 1000개까지 한 번에 등록 가능합니다."); return; }
+    setSubmitting(true); setMsg("");
+    try {
+      const r = await queueYoutubeJobsFn({ data: { urls: lines, category } });
+      setMsg(`${r.queued}개 등록 완료 (스킵 ${r.skipped}). 백그라운드에서 자동 처리됩니다 (1분 단위).`);
+      setUrls("");
+      refresh();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "등록 실패");
+    } finally { setSubmitting(false); }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-border bg-surface p-5">
+        <h2 className="text-base font-bold">유튜브 일괄 학습</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          URL을 한 줄에 하나씩 (최대 1000개) 붙여넣으세요. 자막을 추출해 AI가 요약 → 학습 자료로 자동 저장됩니다.
+          창을 닫아도 백그라운드(서버 cron 1분 주기)에서 계속 처리됩니다.
+        </p>
+        <div className="mt-4 grid gap-3">
+          <select value={category} onChange={(e) => setCategory(e.target.value)}
+            className="rounded-xl border border-border bg-background px-3 py-2 text-sm">
+            {TRAINING_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <textarea value={urls} onChange={(e) => setUrls(e.target.value)} rows={8}
+            placeholder="https://www.youtube.com/watch?v=...\nhttps://youtu.be/..."
+            className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-mono" />
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground">{msg}</span>
+            <button onClick={submit} disabled={submitting}
+              className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-black disabled:opacity-50">
+              {submitting ? "등록 중…" : "큐에 등록"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-surface p-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold">처리 현황</h3>
+          <div className="flex gap-3 text-xs">
+            <span>대기 <b className="text-amber-400">{summary.pending ?? 0}</b></span>
+            <span>처리중 <b className="text-blue-400">{summary.processing ?? 0}</b></span>
+            <span>완료 <b className="text-green-400">{summary.done ?? 0}</b></span>
+            <span>실패 <b className="text-red-400">{summary.failed ?? 0}</b></span>
+          </div>
+        </div>
+        <div className="mt-3 max-h-80 overflow-auto space-y-1">
+          {jobs.map((j) => (
+            <div key={j.id} className="flex items-center justify-between gap-2 rounded-lg border border-border/50 px-3 py-1.5 text-xs">
+              <span className="truncate flex-1">{j.url}</span>
+              <span className={
+                j.status === "done" ? "text-green-400" :
+                j.status === "failed" ? "text-red-400" :
+                j.status === "processing" ? "text-blue-400" : "text-amber-400"
+              }>{j.status}</span>
+            </div>
+          ))}
+          {!jobs.length && <p className="text-xs text-muted-foreground">등록된 작업이 없습니다.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}

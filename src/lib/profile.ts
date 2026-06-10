@@ -95,12 +95,12 @@ export function profileSummary(p: StudentProfile): string {
   if (p.internalYears?.length) {
     for (const yr of p.internalYears) {
       const subs = [
-        yr.korean && `국어 ${yr.korean}`,
-        yr.math && `수학 ${yr.math}`,
-        yr.english && `영어 ${yr.english}`,
-        yr.society && `사회 ${yr.society}`,
-        yr.science && `과학 ${yr.science}`,
-        yr.history && `한국사 ${yr.history}`,
+        yr.korean && `국어 ${yr.korean}${yr.koreanHours ? `(${yr.koreanHours}u)` : ""}`,
+        yr.math && `수학 ${yr.math}${yr.mathHours ? `(${yr.mathHours}u)` : ""}`,
+        yr.english && `영어 ${yr.english}${yr.englishHours ? `(${yr.englishHours}u)` : ""}`,
+        yr.society && `사회 ${yr.society}${yr.societyHours ? `(${yr.societyHours}u)` : ""}`,
+        yr.science && `과학 ${yr.science}${yr.scienceHours ? `(${yr.scienceHours}u)` : ""}`,
+        yr.history && `한국사 ${yr.history}${yr.historyHours ? `(${yr.historyHours}u)` : ""}`,
       ].filter(Boolean);
       lines.push(`내신 ${yr.year}: ${subs.join(" / ")}`);
     }

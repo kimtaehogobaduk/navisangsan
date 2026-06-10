@@ -167,17 +167,36 @@ function Onboarding() {
     }));
   }
 
-  function setInternalGrade(yearLabel: InternalYearRecord["year"], key: string, val: string) {
+    function setInternalGrade(yearLabel: InternalYearRecord["year"], key: string, val: string) {
     setP((prev) => {
       const existing = prev.internalYears ?? [];
       const idx = existing.findIndex((y) => y.year === yearLabel);
       if (idx === -1) {
-        return { ...prev, internalYears: [...existing, { year: yearLabel, [key]: val }] };
+        return { ...prev, internalYears: [...existing, { year: yearLabel, [key]: val } as InternalYearRecord] };
       }
       const updated = [...existing];
       updated[idx] = { ...updated[idx], [key]: val };
       return { ...prev, internalYears: updated };
     });
+  }
+
+  function setInternalHours(yearLabel: InternalYearRecord["year"], key: string, val: string) {
+    const hoursKey = `${key}Hours`;
+    setP((prev) => {
+      const existing = prev.internalYears ?? [];
+      const idx = existing.findIndex((y) => y.year === yearLabel);
+      if (idx === -1) {
+        return { ...prev, internalYears: [...existing, { year: yearLabel, [hoursKey]: val } as InternalYearRecord] };
+      }
+      const updated = [...existing];
+      updated[idx] = { ...updated[idx], [hoursKey]: val };
+      return { ...prev, internalYears: updated };
+    });
+  }
+
+  function getInternalHours(yearLabel: InternalYearRecord["year"], key: string): string {
+    const hoursKey = `${key}Hours`;
+    return (p.internalYears?.find((y) => y.year === yearLabel) as any)?.[hoursKey] ?? "";
   }
 
   function getInternalGrade(yearLabel: InternalYearRecord["year"], key: string): string {
@@ -235,10 +254,12 @@ function Onboarding() {
   }
 
   function nextStep() {
+    saveProfile({ ...p, customInterest: customInterestInput });
     setStep((s) => Math.min(s + 1, totalSteps - 1));
   }
 
   function prevStep() {
+    saveProfile({ ...p, customInterest: customInterestInput });
     setStep((s) => Math.max(s - 1, 0));
   }
 
@@ -421,19 +442,33 @@ function Onboarding() {
                     <span className="rounded-full bg-cyan-500/15 px-2 py-0.5 text-[10px] font-medium text-cyan-400">5등급제</span>
                   )}
                 </div>
-                <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                   {CORE_SUBJECTS.map(({ key, label }) => (
-                    <div key={key} className="flex flex-col gap-1">
-                      <label className="text-xs text-muted-foreground">{label}</label>
-                      <select
-                        value={getInternalGrade(yearLabel, key)}
-                        onChange={(e) => setInternalGrade(yearLabel, key, e.target.value)}
-                        className={`${selectCls} w-full`}
-                      >
-                        {gradeNums.map((g) => (
-                          <option key={g} value={g}>{g ? `${g}등급` : "-"}</option>
-                        ))}
-                      </select>
+                    <div key={key} className="rounded-xl border border-border/40 bg-background/30 p-3">
+                      <label className="mb-2 block text-xs font-semibold text-foreground">{label}</label>
+                      <div className="flex gap-2">
+                        <select
+                          value={getInternalGrade(yearLabel, key)}
+                          onChange={(e) => setInternalGrade(yearLabel, key, e.target.value)}
+                          className={`${selectCls} flex-1 min-w-0 px-2`}
+                        >
+                          {gradeNums.map((g) => (
+                            <option key={g} value={g}>{g ? `${g}등급` : "-"}</option>
+                          ))}
+                        </select>
+                        <div className="relative flex-1 min-w-0">
+                          <input
+                            type="number"
+                            min="1"
+                            max="10"
+                            placeholder="단위"
+                            value={getInternalHours(yearLabel, key)}
+                            onChange={(e) => setInternalHours(yearLabel, key, e.target.value)}
+                            className={`${selectCls} w-full pr-7 px-2`}
+                          />
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">단위</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

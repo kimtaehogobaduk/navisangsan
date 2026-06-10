@@ -58,6 +58,12 @@ const InternalYearRecordSchema = z.object({
   society: z.string().optional(),
   science: z.string().optional(),
   history: z.string().optional(),
+  koreanHours: z.string().optional(),
+  mathHours: z.string().optional(),
+  englishHours: z.string().optional(),
+  societyHours: z.string().optional(),
+  scienceHours: z.string().optional(),
+  historyHours: z.string().optional(),
   electives: z.array(z.object({ subject: z.string(), grade: z.string() })).optional(),
 });
 
@@ -168,12 +174,12 @@ function profileBlock(p?: z.infer<typeof ProfileSchema>): string {
     lines.push("\n[내신 성적]");
     for (const yr of p.internalYears) {
       const subs = [
-        yr.korean && `국어 ${yr.korean}`,
-        yr.math && `수학 ${yr.math}`,
-        yr.english && `영어 ${yr.english}`,
-        yr.society && `사회 ${yr.society}`,
-        yr.science && `과학 ${yr.science}`,
-        yr.history && `한국사 ${yr.history}`,
+        yr.korean && `국어 ${yr.korean}${yr.koreanHours ? `(${yr.koreanHours}단위)` : ""}`,
+        yr.math && `수학 ${yr.math}${yr.mathHours ? `(${yr.mathHours}단위)` : ""}`,
+        yr.english && `영어 ${yr.english}${yr.englishHours ? `(${yr.englishHours}단위)` : ""}`,
+        yr.society && `사회 ${yr.society}${yr.societyHours ? `(${yr.societyHours}단위)` : ""}`,
+        yr.science && `과학 ${yr.science}${yr.scienceHours ? `(${yr.scienceHours}단위)` : ""}`,
+        yr.history && `한국사 ${yr.history}${yr.historyHours ? `(${yr.historyHours}단위)` : ""}`,
       ].filter(Boolean);
       const elStr = yr.electives?.map(e => `${e.subject} ${e.grade}`).join(", ");
       lines.push(`${yr.year}: ${subs.join(" / ")}${elStr ? ` | 선택: ${elStr}` : ""}`);

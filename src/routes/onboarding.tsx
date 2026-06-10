@@ -226,26 +226,18 @@ function Onboarding() {
   }
 
   function nextStep() {
-    if (step === 1 && !isHighSchool) {
-      setStep(3);
-    } else {
-      setStep((s) => Math.min(s + 1, totalSteps - 1));
-    }
+    setStep((s) => Math.min(s + 1, totalSteps - 1));
   }
 
   function prevStep() {
-    if (step === 3 && !isHighSchool) {
-      setStep(1);
-    } else {
-      setStep((s) => Math.max(s - 1, 0));
-    }
+    setStep((s) => Math.max(s - 1, 0));
   }
 
   const stepLabels = isHighSchool
     ? ["기본 정보", "모의고사", "내신", "선택과목", "관심분야·목표"]
     : ["기본 정보", "모의고사", "선택과목", "관심분야·목표"];
 
-  const displayStep = isHighSchool ? step : step < 2 ? step : step - 1;
+  const displayStep = step;
 
   return (
     <div className="mx-auto max-w-2xl px-5 py-10 md:py-14">

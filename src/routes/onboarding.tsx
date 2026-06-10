@@ -4,7 +4,8 @@ import {
   loadProfile, saveProfile,
   type StudentProfile, type MockSubjectGrades, type InternalYearRecord, type ElectiveSubjectEntry,
 } from "@/lib/profile";
-import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles, Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles, Plus, X, Info } from "lucide-react";
+import { consumeProfileRequired } from "@/lib/require-profile";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({

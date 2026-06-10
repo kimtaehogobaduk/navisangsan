@@ -69,7 +69,7 @@ const InternalYearRecordSchema = z.object({
   societyHours: z.string().optional(),
   scienceHours: z.string().optional(),
   historyHours: z.string().optional(),
-  electives: z.array(z.object({ subject: z.string(), grade: z.string() })).optional(),
+  electives: z.array(z.object({ subject: z.string(), grade: z.string(), hours: z.string().optional() })).optional(),
 });
 
 const ProfileSchema = z
@@ -80,7 +80,7 @@ const ProfileSchema = z
     region: z.string().optional(),
     mockGrades: MockSubjectGradesSchema.optional(),
     internalYears: z.array(InternalYearRecordSchema).optional(),
-    electiveSubjects: z.array(z.object({ subject: z.string(), grade: z.string().optional() })).optional(),
+    electiveSubjects: z.array(z.object({ subject: z.string(), grade: z.string().optional(), hours: z.string().optional() })).optional(),
     interests: z.array(z.string()).optional(),
     customInterest: z.string().optional(),
     targetUniversity: z.string().optional(),
@@ -128,7 +128,7 @@ function classifySchool(school?: string): { type: string; tier: "최상위" | "�
 
 function profileBlock(p?: z.infer<typeof ProfileSchema>): string {
   if (!p) return "(학생 프로필 정보 없음)";
-  const lines: string[] = [];
+  const lines: string[] = [ADMISSIONS_INTERPRETATION_RULES];
 
   if (p.name) lines.push(`이름: ${p.name}`);
   if (p.grade) lines.push(`학년: ${p.grade}${p.trackType ? ` (${p.trackType})` : ""}`);
@@ -186,7 +186,7 @@ function profileBlock(p?: z.infer<typeof ProfileSchema>): string {
         yr.science && `과학 ${yr.science}${yr.scienceHours ? `(${yr.scienceHours}단위)` : ""}`,
         yr.history && `한국사 ${yr.history}${yr.historyHours ? `(${yr.historyHours}단위)` : ""}`,
       ].filter(Boolean);
-      const elStr = yr.electives?.map(e => `${e.subject} ${e.grade}`).join(", ");
+      const elStr = yr.electives?.map(e => `${e.subject} ${e.grade}${e.hours ? `(${e.hours}시수)` : ""}`).join(", ");
       lines.push(`${yr.year}: ${subs.join(" / ")}${elStr ? ` | 선택: ${elStr}` : ""}`);
     }
   } else if (p.internalGrade) {
@@ -194,7 +194,7 @@ function profileBlock(p?: z.infer<typeof ProfileSchema>): string {
   }
 
   if (p.electiveSubjects?.length) {
-    const elStr = p.electiveSubjects.map(e => e.grade ? `${e.subject}(${e.grade}등급)` : e.subject).join(", ");
+    const elStr = p.electiveSubjects.map(e => e.grade ? `${e.subject}(${e.grade}등급${e.hours ? `/${e.hours}시수` : ""})` : `${e.subject}${e.hours ? `(${e.hours}시수)` : ""}`).join(", ");
     lines.push(`\n선택과목: ${elStr}`);
   }
 

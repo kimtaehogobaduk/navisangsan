@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
 import { markProfileRequired } from "@/lib/require-profile";
-import { getInterviewFeedback, generateEssayInterviewQuestions } from "@/lib/ai.functions";
+import { getInterviewFeedback, generateEssayInterviewQuestions, generateCommonInterviewQuestions } from "@/lib/ai.functions";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import InterviewVideoPreview, { type VideoPreviewHandle } from "@/components/InterviewVideoPreview";
 import AudioRadarChart from "@/components/AudioRadarChart";
@@ -19,8 +19,8 @@ export const Route = createFileRoute("/interview")({
   component: InterviewPage,
 });
 
-// ──────────── 공통 면접 질문 풀 ────────────
-const COMMON_QUESTIONS = [
+// ──────────── 공통 면접 질문 fallback (AI 생성 실패 시) ────────────
+const FALLBACK_commonQuestions = [
   "자기소개를 1분 안에 해주세요.",
   "우리 학교/학과에 지원한 동기는 무엇인가요?",
   "본인의 가장 큰 장점과 단점은 무엇인가요?",
@@ -29,23 +29,8 @@ const COMMON_QUESTIONS = [
   "팀 프로젝트에서 갈등이 생겼을 때 어떻게 해결했나요?",
   "리더십을 발휘한 경험이 있다면 구체적으로 말해주세요.",
   "가장 어려웠던 과목을 어떻게 극복했나요?",
-  "학업과 다른 활동의 균형을 어떻게 맞추나요?",
   "본인이 지원한 전공에 관심을 갖게 된 계기는 무엇인가요?",
   "10년 후 본인의 모습을 어떻게 그리고 있나요?",
-  "최근 관심 있게 본 사회 이슈는 무엇이고, 어떻게 생각하나요?",
-  "봉사활동 경험 중 가장 기억에 남는 것은 무엇인가요?",
-  "독서를 통해 가장 큰 영향을 받은 책과 그 이유를 말해주세요.",
-  "정직과 성공 중 하나를 선택해야 한다면 무엇을 선택하겠습니까?",
-  "본인이 경험한 가장 큰 실패와 그 교훈은 무엇인가요?",
-  "창의적으로 문제를 해결한 경험이 있다면 말해주세요.",
-  "우리 학과에 합격한다면 어떤 방식으로 대학 생활을 계획하고 있나요?",
-  "글로벌 시대에 한국인으로서 갖춰야 할 가장 중요한 역량은 무엇이라고 생각하나요?",
-  "본인이 생각하는 진정한 리더의 조건은 무엇인가요?",
-  "자신의 성격 중 대학 생활에 가장 도움이 될 특성과 그 이유는?",
-  "전공 선택 시 가장 중요하게 고려한 요소는 무엇인가요?",
-  "자기주도적으로 학습한 경험을 말해주세요.",
-  "우리 학과 졸업 후 진로 계획은 구체적으로 어떻게 됩니까?",
-  "본인이 타인과 차별화되는 특별한 강점은 무엇인가요?",
 ];
 
 // ──────────── 타입 ────────────
@@ -75,7 +60,9 @@ function InterviewPage() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [mode, setMode] = useState<Mode>("common");
 
-  // 공통 면접 상태
+  // 공통 면접 상태 (질문은 학교·학과 맞춤 AI 생성)
+  const [commonQuestions, setCommonQuestions] = useState<string[]>(FALLBACK_commonQuestions);
+  const [regeneratingCommon, setRegeneratingCommon] = useState(false);
   const [qIdx, setQIdx] = useState(0);
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);
@@ -104,13 +91,35 @@ function InterviewPage() {
   // 서버 함수
   const getFeedback = useServerFn(getInterviewFeedback);
   const genQuestions = useServerFn(generateEssayInterviewQuestions);
+  const genCommon = useServerFn(generateCommonInterviewQuestions);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const loadCommonQuestions = async (p: StudentProfile, force = false) => {
+    const cacheKey = `navi.interview.common.v2.${p.school}.${p.targetMajor}`;
+    if (!force) {
+      const cached = typeof window !== "undefined" ? localStorage.getItem(cacheKey) : null;
+      if (cached) { try { setCommonQuestions(JSON.parse(cached)); return; } catch { /* */ } }
+    }
+    setRegeneratingCommon(true);
+    try {
+      const res = await genCommon({ data: { profile: p } });
+      const qs = res?.questions ?? [];
+      if (qs.length >= 5) {
+        setCommonQuestions(qs);
+        setQIdx(0);
+        if (typeof window !== "undefined") localStorage.setItem(cacheKey, JSON.stringify(qs));
+      }
+    } catch { /* fallback 유지 */ }
+    finally { setRegeneratingCommon(false); }
+  };
 
   useEffect(() => {
     const p = loadProfile();
     if (!p) { (markProfileRequired("면접 시뮬레이터"), navigate({ to: "/onboarding" })); return; }
     setProfile(p);
+    loadCommonQuestions(p);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
 
   useEffect(() => {
@@ -131,7 +140,7 @@ function InterviewPage() {
     const ans = (useVoice ? speech.transcript : answer).trim();
     if (!ans || !profile) return;
     setLoading(true);
-    const q = COMMON_QUESTIONS[qIdx];
+    const q = commonQuestions[qIdx];
     const voiceMetrics = useVoice
       ? {
           wordsPerMinute: speech.duration > 0 ? Math.round((speech.wordCount / speech.duration) * 60) : 0,
@@ -259,7 +268,7 @@ function InterviewPage() {
     speech.resetTranscript();
   }
 
-  const currentCommonQ = COMMON_QUESTIONS[qIdx];
+  const currentCommonQ = commonQuestions[qIdx];
   const currentEssayQ = essayQuestions[essayQIdx] ?? null;
 
   return (
@@ -332,27 +341,42 @@ function InterviewPage() {
               {/* 질문 카드 */}
               <div className="rounded-2xl border border-border bg-surface p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    질문 {qIdx + 1} / {COMMON_QUESTIONS.length}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      질문 {qIdx + 1} / {commonQuestions.length}
+                    </span>
+                    {profile?.school && (
+                      <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-medium text-brand">
+                        {profile.school} · {profile.targetMajor || "학과 미정"} 맞춤
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => { setQIdx((i) => (i - 1 + COMMON_QUESTIONS.length) % COMMON_QUESTIONS.length); setAnswer(""); speech.resetTranscript(); }}
+                      onClick={() => { setQIdx((i) => (i - 1 + commonQuestions.length) % commonQuestions.length); setAnswer(""); speech.resetTranscript(); }}
                       className="grid h-7 w-7 place-items-center rounded-lg border border-border text-muted-foreground hover:text-foreground transition"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => { setQIdx((i) => (i + 1) % COMMON_QUESTIONS.length); setAnswer(""); speech.resetTranscript(); }}
+                      onClick={() => { setQIdx((i) => (i + 1) % commonQuestions.length); setAnswer(""); speech.resetTranscript(); }}
                       className="grid h-7 w-7 place-items-center rounded-lg border border-border text-muted-foreground hover:text-foreground transition"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => { setQIdx(Math.floor(Math.random() * COMMON_QUESTIONS.length)); setAnswer(""); speech.resetTranscript(); }}
+                      onClick={() => { setQIdx(Math.floor(Math.random() * commonQuestions.length)); setAnswer(""); speech.resetTranscript(); }}
                       className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground transition"
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> 랜덤
+                    </button>
+                    <button
+                      onClick={() => { if (profile) loadCommonQuestions(profile, true); }}
+                      disabled={regeneratingCommon || !profile}
+                      className="inline-flex items-center gap-1 rounded-lg border border-brand/40 bg-brand/10 px-2.5 py-1 text-xs font-medium text-brand transition hover:bg-brand/20 disabled:opacity-50"
+                    >
+                      {regeneratingCommon ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      재생성
                     </button>
                   </div>
                 </div>

@@ -76,14 +76,48 @@ const MOCK_LABELS: Record<string, string> = {
   society: "사회", science: "과학", history: "한국사",
 };
 
+/** 학교명을 보고 유형을 분류한다. 내신 등급 해석에 결정적인 영향. */
+function classifySchool(school?: string): { type: string; tier: "최상위" | "상위" | "중위" | "일반"; weightNote: string } | null {
+  if (!school) return null;
+  const s = school.replace(/\s+/g, "");
+  // 영재학교 (전국 8개교 — 서울과학고/경기과학고/대구과학고/광주과학고/대전과학고/세종과학예술영재학교/인천과학예술영재학교/한국과학영재학교)
+  if (/(영재학교|과학영재|영재고)/.test(s) || /(서울과학고|경기과학고|대구과학고|광주과학고|대전과학고|세종과학예술|인천과학예술|한국과학영재)/.test(s))
+    return { type: "영재학교", tier: "최상위", weightNote: "전국 최상위 0.1% 집단. 내신 3~4등급도 일반고 1등급과 동급 이상으로 평가됨. 학종에서 학교 위상·교과 심화 깊이가 결정적." };
+  if (/과학고/.test(s))
+    return { type: "과학고", tier: "최상위", weightNote: "이공계 최상위권 집단. 내신 2~3등급도 일반고 1등급 수준. KAIST·서울대 이공계 학종에서 강력한 어드밴티지." };
+  if (/(외국어고|외고)/.test(s))
+    return { type: "외국어고", tier: "상위", weightNote: "어문·사회·국제계열 강세. 내신 경쟁 치열해 일반고 대비 1~2등급 가산 고려 필요. 어문/사회/경영 학종에 유리." };
+  if (/국제고/.test(s))
+    return { type: "국제고", tier: "상위", weightNote: "국제·인문사회 특화. 내신 경쟁 치열, 일반고 대비 1~2등급 가산. 글로벌·국제학·정외에 유리." };
+  if (/(자사고|자율형사립|민사고|상산고|하나고|외대부고|용인외대|현대청운|북일고|포항제철고|광양제철고|인천하늘고)/.test(s))
+    return { type: "전국형 자사고", tier: "상위", weightNote: "최상위권 사립 집단. 내신 경쟁 매우 치열, 일반고 대비 1~2등급 가산 고려. 학종 비교과 강세." };
+  if (/(예술고|예고|국립국악|선화예|계원예)/.test(s))
+    return { type: "예술고", tier: "상위", weightNote: "실기 중심 전형. 일반 교과 내신보다 실기·전공 활동이 결정적." };
+  if (/(체육고|체고)/.test(s))
+    return { type: "체육고", tier: "상위", weightNote: "체육특기자·실기 중심. 일반 교과 내신 가중치 낮음." };
+  if (/마이스터/.test(s))
+    return { type: "마이스터고", tier: "중위", weightNote: "취업 특화. 대학 진학 시 특성화고 전형·재직자 전형 활용." };
+  if (/특성화/.test(s))
+    return { type: "특성화고", tier: "중위", weightNote: "직업계열. 특성화고 전형·동일계 전형 활용 시 유리." };
+  // 자율형공립고
+  if (/(자공고|자율형공립)/.test(s))
+    return { type: "자율형공립고", tier: "일반", weightNote: "일반고와 유사한 평가. 학교 프로그램 다양성 가산." };
+  return { type: "일반고", tier: "일반", weightNote: "일반고 표준 평가. 내신 등급이 그대로 반영됨. 1~2등급이면 학종/교과 모두 경쟁력." };
+}
+
 function profileBlock(p?: z.infer<typeof ProfileSchema>): string {
   if (!p) return "(학생 프로필 정보 없음)";
   const lines: string[] = [];
 
   if (p.name) lines.push(`이름: ${p.name}`);
   if (p.grade) lines.push(`학년: ${p.grade}${p.trackType ? ` (${p.trackType})` : ""}`);
-  if (p.school) lines.push(`학교: ${p.school}`);
-  else if (p.region) lines.push(`지역: ${p.region}`);
+  const schoolInfo = classifySchool(p.school);
+  if (p.school && schoolInfo) {
+    lines.push(`학교: ${p.school}  [분류: ${schoolInfo.type} / 위상: ${schoolInfo.tier}]`);
+    lines.push(`⚠️ 학교 가중치 해석 — ${schoolInfo.weightNote}`);
+  } else if (p.school) {
+    lines.push(`학교: ${p.school}`);
+  } else if (p.region) lines.push(`지역: ${p.region}`);
 
   if (p.mockGrades) {
     const mockLines: string[] = [];
@@ -817,7 +851,11 @@ export const generateEssayInterviewQuestions = createServerFn({ method: "POST" }
 [규칙]
 - 자기소개서에서 구체적으로 언급된 활동, 경험, 가치관을 파고드는 심층 질문
 - 단순 확인 질문이 아닌, 추가 설명을 유도하는 개방형 질문
-- 학생의 목표 학과와 연결되는 질문 포함
+- **목표 학과**와 직결되는 전공적합성 질문 최소 2개 포함
+- **학교 유형**(영재고/과학고/외고/자사고/일반고 등)에 맞춘 톤·난이도 조정
+  · 영재고·과학고: 연구 경험, 심화 탐구의 학문적 깊이를 파고드는 질문
+  · 외고·국제고: 어문·국제 감각, 인문 사회 통찰력을 묻는 질문
+  · 자사고·일반고: 동기·성장 서사, 학교 환경 속 주체성에 초점
 - 압박 질문 1개 포함 (논리적 약점을 파고드는)
 - JSON 배열만 출력: ["질문1", "질문2", "질문3", "질문4", "질문5"]
 
@@ -845,6 +883,52 @@ ${profileBlock(data.profile)}`;
       // 줄바꿈 fallback
       const lines = raw.split("\n").map(l => l.replace(/^[\d\.\-\*\s]+/, "").trim()).filter(l => l.length > 10);
       return { questions: lines.slice(0, 5) };
+    } catch (error) {
+      normalizeAiError(error);
+    }
+  });
+
+// ============ 공통 면접 질문 생성 (학교·학과 맞춤) ============
+export const generateCommonInterviewQuestions = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ profile: ProfileSchema.optional() }))
+  .handler(async ({ data }) => {
+    try {
+      const { cerebrasChat } = await import("./cerebras.server");
+      const system = `너는 대학 입시 면접관이다. 학생 프로필을 바탕으로 실제 면접에서 사용할 **공통 면접 질문 20개**를 생성한다.
+
+[규칙]
+- 인성·일반·상황·동기·가치관 영역을 골고루 포함
+- **학생 학교 유형**(영재고/과학고/외고/국제고/자사고/일반고/특성화고 등)을 강하게 반영
+  · 영재고·과학고: 연구 동기, 학문 탐구의 깊이, 학회/논문 경험, 이공계 윤리 등 학문적 톤
+  · 외고·국제고: 글로벌 감각, 다문화 이해, 어문·사회 통찰, 국제 이슈에 대한 견해
+  · 전국형 자사고: 학교 프로그램에서의 주체적 성취, 비교과 깊이
+  · 일반고: 환경적 제약 속 자기주도성, 성장 서사, 학교 활동 활용도
+  · 특성화·마이스터고: 진로·직무 적합성, 실무 경험
+- 질문 중 **최소 7개**는 학생의 **목표 학과**(전공적합성·진로 비전)에 직결되도록 구성
+- 단순 확인이 아닌 개방형, 한 문장으로 명확하게
+- JSON 배열만 출력: ["질문1", ..., "질문20"]. 다른 텍스트 절대 금지.
+
+[학생 프로필]
+${profileBlock(data.profile)}`;
+
+      const raw = await cerebrasChat({
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: "위 학생에게 적합한 공통 면접 질문 20개를 JSON 배열로 출력하라." },
+        ],
+        temperature: 0.6,
+        max_tokens: 2000,
+      });
+
+      const match = raw.match(/\[[\s\S]*\]/);
+      if (match) {
+        try {
+          const questions = JSON.parse(match[0]) as string[];
+          if (Array.isArray(questions) && questions.length > 0) return { questions };
+        } catch { /* */ }
+      }
+      const lines = raw.split("\n").map(l => l.replace(/^[\d\.\-\*\s"']+/, "").replace(/["']\s*,?\s*$/, "").trim()).filter(l => l.length > 8);
+      return { questions: lines.slice(0, 20) };
     } catch (error) {
       normalizeAiError(error);
     }

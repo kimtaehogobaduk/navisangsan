@@ -136,7 +136,11 @@ function Onboarding() {
 
   const isHighSchool = HIGH_GRADES.includes(p.grade);
   const internalYearsAvailable = INTERNAL_YEARS_MAP[p.grade] ?? [];
-  const totalSteps = isHighSchool ? 5 : 4;
+  const stepKeys: ("basic" | "mock" | "internal" | "elective" | "interest")[] = isHighSchool
+    ? ["basic", "mock", "internal", "elective", "interest"]
+    : ["basic", "mock", "elective", "interest"];
+  const totalSteps = stepKeys.length;
+  const currentStepKey = stepKeys[Math.min(step, stepKeys.length - 1)];
 
   useEffect(() => {
     const existing = loadProfile();
@@ -146,6 +150,11 @@ function Onboarding() {
     }
     setRequiredFrom(consumeProfileRequired());
   }, []);
+
+  // 학년 변경 등으로 totalSteps가 줄어드는 경우 step을 안전하게 클램프
+  useEffect(() => {
+    if (step > totalSteps - 1) setStep(totalSteps - 1);
+  }, [totalSteps, step]);
 
 
   function setMockGrade(key: keyof MockSubjectGrades, field: "grade" | "percentile", val: string) {

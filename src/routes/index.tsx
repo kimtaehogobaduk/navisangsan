@@ -1,5 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { ArrowRight, Brain, FileText, Sparkles, Target, MessageCircle, Map } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -49,6 +51,31 @@ const features = [
 ];
 
 function Landing() {
+  const navigate = useNavigate();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    supabase.auth.getSession().then(({ data }) => {
+      setIsLoggedIn(!!data.session?.user);
+      setAuthChecked(true);
+    }).catch(() => setAuthChecked(true));
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setIsLoggedIn(!!session?.user);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  function handleCta() {
+    if (isLoggedIn) {
+      navigate({ to: "/dashboard" });
+    } else {
+      navigate({ to: "/login" });
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
@@ -58,12 +85,12 @@ function Landing() {
           </div>
           <span className="text-lg font-bold tracking-tight">NAVI</span>
         </div>
-        <Link
-          to="/login"
+        <button
+          onClick={handleCta}
           className="rounded-full border border-border bg-surface px-4 py-2 text-xs font-medium text-foreground transition hover:bg-surface-elevated"
         >
-          시작하기
-        </Link>
+          {authChecked && isLoggedIn ? "대시보드" : "시작하기"}
+        </button>
       </header>
 
       {/* HERO */}
@@ -84,18 +111,18 @@ function Landing() {
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <Link
-            to="/onboarding"
+          <button
+            onClick={handleCta}
             className="inline-flex items-center gap-2 rounded-full bg-gradient-brand px-6 py-3 text-sm font-semibold text-brand-foreground shadow-glow transition hover:scale-[1.02]"
           >
-            10분 진단 시작 <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
-            to="/coach"
+            {authChecked && isLoggedIn ? "홈으로 이동" : "10분 진단 시작"} <ArrowRight className="h-4 w-4" />
+          </button>
+          <button
+            onClick={handleCta}
             className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3 text-sm font-medium text-foreground transition hover:bg-surface-elevated"
           >
             AI 코치 먼저 체험
-          </Link>
+          </button>
         </div>
 
         {/* Gap stats */}
@@ -134,19 +161,19 @@ function Landing() {
       {/* QUOTE */}
       <section className="mx-auto max-w-4xl px-6 py-20 text-center">
         <p className="text-xl font-semibold leading-relaxed md:text-2xl">
-          “강남 학생은 수십만 원짜리 컨설팅으로 해결하는 문제를,
+          "강남 학생은 수십만 원짜리 컨설팅으로 해결하는 문제를,
           <br />
-          전북 익산 학생은 <span className="text-gradient-brand">NAVI</span>로 해결한다.”
+          전북 익산 학생은 <span className="text-gradient-brand">NAVI</span>로 해결한다."
         </p>
         <p className="mt-4 text-xs text-muted-foreground">— NAVI의 존재 이유</p>
 
         <div className="mt-10">
-          <Link
-            to="/onboarding"
+          <button
+            onClick={handleCta}
             className="inline-flex items-center gap-2 rounded-full bg-gradient-brand px-8 py-4 text-base font-semibold text-brand-foreground shadow-glow transition hover:scale-[1.02]"
           >
             지금 시작하기 <ArrowRight className="h-4 w-4" />
-          </Link>
+          </button>
         </div>
       </section>
 

@@ -163,14 +163,44 @@ export const aiCoachChat = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const { cerebrasChat } = await import("./cerebras.server");
+
+      // 입시 정보 DB에서 관련 정보 가져오기 (학년에 맞는 것 + 공통)
+      let admissionsContext = "";
+      try {
+        const { getAllAdmissionsInfo } = await import("./db.server");
+        const allItems = await getAllAdmissionsInfo();
+        if (allItems.length > 0) {
+          const grade = data.profile?.grade ?? "";
+          const isFiveTier = ["고1", "고2", "중2", "중3"].includes(grade);
+          const relevant = allItems.filter((item) => {
+            if (item.target_grade === "공통") return true;
+            if (isFiveTier && item.target_grade === "고2이하") return true;
+            if (!isFiveTier && item.target_grade === "고3n수") return true;
+            return false;
+          });
+          // 중요도 상위 10개만 컨텍스트로 사용 (토큰 절약)
+          const top = relevant.slice(0, 10);
+          if (top.length > 0) {
+            admissionsContext = "\n\n[NAVI 실시간 입시 정보 DB — 답변 시 참고]\n"
+              + top.map((item) =>
+                `• [${item.info_type}/${item.target_grade}] ${item.title}: ${item.summary}` +
+                (item.bullets?.length ? "\n  " + item.bullets.slice(0, 3).join(" | ") : "")
+              ).join("\n");
+          }
+        }
+      } catch {
+        // DB 미사용 시 무시하고 기본 응답
+      }
+
       const system = `너는 NAVI의 AI 진로 코치다. 한국 입시(고교학점제, 수시 학생부종합/교과/논술, 정시, 생활기록부 세부능력특기사항)에 정통하다.
 대치동 컨설팅 수준의 전략을 친근하고 명확하게 제공한다. 항상 한국어로 답하고, 구조화된 답변(번호/굵은 항목/실행 액션)을 사용한다.
 모르는 정보는 단정하지 말고 추가로 어떤 정보가 필요한지 묻는다. 학생을 격려하되 현실적인 조언을 한다.
+아래 실시간 입시 정보가 제공되면 이를 최우선 참고 데이터로 활용해 정확한 답변을 제공한다.
 
 ${FORMAT_RULES}
 
 [학생 프로필]
-${profileBlock(data.profile)}`;
+${profileBlock(data.profile)}${admissionsContext}`;
 
       const reply = await cerebrasChat({
         messages: [{ role: "system", content: system }, ...data.messages],

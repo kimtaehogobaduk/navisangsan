@@ -636,6 +636,17 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+// 복수 폼 컨트롤(칩 버튼 + 입력 등)을 포함할 때 사용. <label>을 쓰지 않아
+// 사양 위반/예기치 않은 폼 제출 전파를 막는다.
+function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="block">
+      <span className="mb-2 block text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </div>
+  );
+}
+
 function Chip({
   active,
   children,

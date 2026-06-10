@@ -118,7 +118,7 @@ function Landing() {
             {authChecked && isLoggedIn ? "홈으로 이동" : "10분 진단 시작"} <ArrowRight className="h-4 w-4" />
           </button>
           <button
-            onClick={handleCta}
+            onClick={() => navigate({ to: "/coach" })}
             className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3 text-sm font-medium text-foreground transition hover:bg-surface-elevated"
           >
             AI 코치 먼저 체험

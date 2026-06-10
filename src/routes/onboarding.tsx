@@ -4,7 +4,8 @@ import {
   loadProfile, saveProfile,
   type StudentProfile, type MockSubjectGrades, type InternalYearRecord, type ElectiveSubjectEntry,
 } from "@/lib/profile";
-import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles, Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles, Plus, X, Info } from "lucide-react";
+import { consumeProfileRequired } from "@/lib/require-profile";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({
@@ -130,6 +131,7 @@ function Onboarding() {
   const [p, setP] = useState<StudentProfile>(makeEmptyProfile());
   const [customInterestInput, setCustomInterestInput] = useState("");
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
+  const [requiredFrom, setRequiredFrom] = useState<string | null>(null);
 
   const isHighSchool = HIGH_GRADES.includes(p.grade);
   const internalYearsAvailable = INTERNAL_YEARS_MAP[p.grade] ?? [];
@@ -141,7 +143,9 @@ function Onboarding() {
       setP({ ...makeEmptyProfile(), ...existing });
       setCustomInterestInput(existing.customInterest ?? "");
     }
+    setRequiredFrom(consumeProfileRequired());
   }, []);
+
 
   function setMockGrade(key: keyof MockSubjectGrades, field: "grade" | "percentile", val: string) {
     setP((prev) => ({
@@ -252,6 +256,21 @@ function Onboarding() {
       <p className="mt-1 text-sm text-muted-foreground">
         입력한 정보는 기기에만 저장되며, AI 코치 답변 품질을 위해 사용됩니다.
       </p>
+
+      {requiredFrom && (
+        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-brand/30 bg-brand/10 p-4 text-sm">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+          <div>
+            <p className="font-semibold text-foreground">
+              <span className="text-brand">{requiredFrom}</span> 기능은 진단이 끝나면 바로 열려요
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              개인화된 결과를 위해 10분 진단을 먼저 완료해 주세요. 진단 후 자동으로 모든 기능이 활성화됩니다.
+            </p>
+          </div>
+        </div>
+      )}
+
 
       {/* Step indicator */}
       <div className="mt-6 flex items-center gap-1">

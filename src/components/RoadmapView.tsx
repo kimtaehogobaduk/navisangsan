@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   type RoadmapData, type MonthPlan, type CheckItem, CATEGORY_META,
 } from "@/lib/roadmap";
+import { MindMap } from "@/components/MindMap";
 import {
   ChevronDown, ChevronUp, BookOpen, Target, Flame, Clock,
   GraduationCap, Trophy, Brain, CalendarDays, Star, TrendingUp,
@@ -36,6 +37,21 @@ export function RoadmapView({
 
   const month = data.months[activePhase];
   const phaseColor = month ? PHASE_COLORS[month.phase] : PHASE_COLORS["단기"];
+  const mindMapMonth = month ? {
+    title: month.monthLabel,
+    focus: month.theme || month.monthLabel,
+    studyFocus: month.studyStrategy?.weakSubject ?? "",
+    recordFocus: month.recordStrategy?.keyKeyword ?? "",
+    theme: month.theme,
+    milestones: month.keyEvents ?? [],
+    tasks: (month.checkItems ?? []).map((item) => ({
+      ...item,
+      title: item.text,
+      detail: `${item.week}주차 · ${CATEGORY_META[item.category].label}`,
+      estimatedHours: item.hours,
+      tips: [item.priority === "high" ? "이번 달 최우선 과제" : "체크리스트와 함께 진행"],
+    })),
+  } : null;
 
   function toggleWeek(key: string) {
     setExpandedWeeks((prev) => {
@@ -80,6 +96,9 @@ export function RoadmapView({
           );
         })}
       </div>
+
+      {/* ── 선택된 달 상세 ── */}
+      {mindMapMonth && <MindMap month={mindMapMonth} />}
 
       {/* ── 선택된 달 상세 ── */}
       {month && (

@@ -257,6 +257,21 @@ function Onboarding() {
         입력한 정보는 기기에만 저장되며, AI 코치 답변 품질을 위해 사용됩니다.
       </p>
 
+      {requiredFrom && (
+        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-brand/30 bg-brand/10 p-4 text-sm">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+          <div>
+            <p className="font-semibold text-foreground">
+              <span className="text-brand">{requiredFrom}</span> 기능은 진단이 끝나면 바로 열려요
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              개인화된 결과를 위해 10분 진단을 먼저 완료해 주세요. 진단 후 자동으로 모든 기능이 활성화됩니다.
+            </p>
+          </div>
+        </div>
+      )}
+
+
       {/* Step indicator */}
       <div className="mt-6 flex items-center gap-1">
         {stepLabels.map((label, i) => (

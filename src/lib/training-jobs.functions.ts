@@ -6,6 +6,11 @@ function extractYoutubeId(url: string): string | null {
   return m ? m[1] : null;
 }
 
+function extractYoutubeUrls(input: string): string[] {
+  const matches = input.match(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)[A-Za-z0-9_\-?=&%]+/g);
+  return (matches ?? []).map((u) => u.replace(/[)\],.]+$/g, ""));
+}
+
 export const queueYoutubeJobsFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
@@ -16,10 +21,11 @@ export const queueYoutubeJobsFn = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const rows = data.urls
-      .map((u) => u.trim())
+      .flatMap((u) => extractYoutubeUrls(u.trim()))
       .filter(Boolean)
       .map((u) => extractYoutubeId(u))
       .filter((id): id is string => !!id)
+      .filter((id, index, arr) => arr.indexOf(id) === index)
       .map((id) => ({
         job_type: "youtube",
         url: `https://www.youtube.com/watch?v=${id}`,
@@ -37,7 +43,7 @@ export const listTrainingJobsFn = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: jobs } = await supabaseAdmin
       .from("training_jobs")
-      .select("id, url, status, error, category, created_at, processed_at")
+      .select("id, url, status, error, category, created_at, processed_at, doc_id")
       .order("created_at", { ascending: false })
       .limit(200);
     const { data: counts } = await supabaseAdmin
@@ -46,6 +52,28 @@ export const listTrainingJobsFn = createServerFn({ method: "GET" })
     const summary = { pending: 0, processing: 0, done: 0, failed: 0 } as Record<string, number>;
     for (const r of counts ?? []) summary[r.status] = (summary[r.status] ?? 0) + 1;
     return { jobs: jobs ?? [], summary };
+  });
+
+export const cancelTrainingJobFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("training_jobs")
+      .update({ status: "cancelled", processed_at: new Date().toISOString(), error: "사용자 취소" })
+      .eq("id", data.id)
+      .in("status", ["pending", "processing", "failed"]);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteTrainingJobFn = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ id: z.string().uuid() }))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("training_jobs").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const listTrainingDocsFn = createServerFn({ method: "GET" })

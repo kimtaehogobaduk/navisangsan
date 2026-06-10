@@ -19,6 +19,8 @@ import {
   listTrainingDocsFn,
   saveTrainingDocFn,
   deleteTrainingDocFn,
+  cancelTrainingJobFn,
+  deleteTrainingJobFn,
 } from "@/lib/training-jobs.functions";
 
 export const Route = createFileRoute("/admin")({
@@ -387,8 +389,9 @@ function YoutubeTab() {
   const [urls, setUrls] = useState("");
   const [category, setCategory] = useState(TRAINING_CATEGORIES[0]);
   const [submitting, setSubmitting] = useState(false);
+  const [actingId, setActingId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
-  const [jobs, setJobs] = useState<{ id: string; url: string; status: string; error: string | null; created_at: string }[]>([]);
+  const [jobs, setJobs] = useState<{ id: string; url: string; status: string; error: string | null; created_at: string; doc_id?: string | null }[]>([]);
   const [summary, setSummary] = useState<Record<string, number>>({});
 
   async function refresh() {
@@ -406,7 +409,10 @@ function YoutubeTab() {
   }, []);
 
   async function submit() {
-    const lines = urls.split(/\s+/).map((s) => s.trim()).filter((s) => /^https?:\/\//.test(s));
+    const lines = urls
+      .split(/\n+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
     if (!lines.length) { setMsg("유효한 URL이 없습니다."); return; }
     if (lines.length > 1000) { setMsg("최대 1000개까지 한 번에 등록 가능합니다."); return; }
     setSubmitting(true); setMsg("");
@@ -420,12 +426,35 @@ function YoutubeTab() {
     } finally { setSubmitting(false); }
   }
 
+  async function cancelJob(id: string) {
+    setActingId(id);
+    try {
+      await cancelTrainingJobFn({ data: { id } });
+      await refresh();
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function deleteJob(id: string) {
+    setActingId(id);
+    try {
+      await deleteTrainingJobFn({ data: { id } });
+      await refresh();
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  const dataJobs = jobs.filter((j) => j.status === "done");
+  const queueJobs = jobs.filter((j) => j.status !== "done");
+
   return (
     <div className="space-y-5">
       <div className="rounded-2xl border border-border bg-surface p-5">
         <h2 className="text-base font-bold">유튜브 일괄 학습</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          URL을 한 줄에 하나씩 (최대 1000개) 붙여넣으세요. 자막을 추출해 AI가 요약 → 학습 자료로 자동 저장됩니다.
+          URL을 한 줄에 하나씩 (최대 1000개) 붙여넣으세요. 마크다운 링크/검색결과 형태여도 유튜브 링크만 추출해 큐에 넣습니다.
           창을 닫아도 백그라운드(서버 cron 1분 주기)에서 계속 처리됩니다.
         </p>
         <div className="mt-4 grid gap-3">
@@ -456,23 +485,49 @@ function YoutubeTab() {
             <span>실패 <b className="text-red-400">{summary.failed ?? 0}</b></span>
           </div>
         </div>
-        <div className="mt-3 max-h-80 overflow-auto space-y-1">
-          {jobs.map((j) => (
+        <div className="mt-3 space-y-4">
+          <div>
+            <div className="mb-2 text-xs font-semibold text-muted-foreground">작업 큐</div>
+            <div className="max-h-64 overflow-auto space-y-1">
+          {queueJobs.map((j) => (
             <div key={j.id} className="rounded-lg border border-border/50 px-3 py-1.5 text-xs">
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate flex-1">{j.url}</span>
-                <span className={
-                  j.status === "done" ? "text-green-400" :
-                  j.status === "failed" ? "text-red-400" :
-                  j.status === "processing" ? "text-blue-400" : "text-amber-400"
-                }>{j.status}</span>
+                <div className="flex items-center gap-2">
+                  <span className={
+                    j.status === "done" ? "text-green-400" :
+                    j.status === "failed" ? "text-red-400" :
+                    j.status === "processing" ? "text-blue-400" : j.status === "cancelled" ? "text-muted-foreground" : "text-amber-400"
+                  }>{j.status}</span>
+                  {(j.status === "pending" || j.status === "processing" || j.status === "failed") && (
+                    <button onClick={() => cancelJob(j.id)} disabled={actingId === j.id} className="rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50">취소</button>
+                  )}
+                  <button onClick={() => deleteJob(j.id)} disabled={actingId === j.id} className="rounded-md border border-border px-2 py-0.5 text-[11px] text-red-400/90 disabled:opacity-50">삭제</button>
+                </div>
               </div>
               {j.error && (
                 <div className="mt-1 text-[11px] text-red-400/80 break-words">⚠ {j.error}</div>
               )}
             </div>
           ))}
-          {!jobs.length && <p className="text-xs text-muted-foreground">등록된 작업이 없습니다.</p>}
+          {!queueJobs.length && <p className="text-xs text-muted-foreground">대기/실패/처리중 작업이 없습니다.</p>}
+            </div>
+          </div>
+
+          <div>
+            <div className="mb-2 text-xs font-semibold text-green-400">데이터</div>
+            <div className="max-h-64 overflow-auto space-y-1">
+              {dataJobs.map((j) => (
+                <div key={j.id} className="rounded-lg border border-green-500/20 bg-green-500/5 px-3 py-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate flex-1">{j.url}</span>
+                    <span className="text-green-400">완료</span>
+                  </div>
+                </div>
+              ))}
+              {!dataJobs.length && <p className="text-xs text-muted-foreground">완료되어 데이터로 적재된 항목이 없습니다.</p>}
+            </div>
+          </div>
         </div>
       </div>
     </div>

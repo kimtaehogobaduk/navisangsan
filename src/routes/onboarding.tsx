@@ -535,7 +535,7 @@ function Onboarding() {
           <div className="space-y-6">
             <SectionTitle>관심분야 · 목표</SectionTitle>
 
-            <Field label="관심 분야 (복수 선택)">
+            <FieldGroup label="관심 분야 (복수 선택)">
               <div className="flex flex-wrap gap-2">
                 {INTERESTS_PRESET.map((i) => (
                   <Chip key={i} active={p.interests.includes(i)} onClick={() => toggleInterest(i)}>
@@ -548,11 +548,12 @@ function Onboarding() {
                 <input
                   value={customInterestInput}
                   onChange={(e) => setCustomInterestInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
                   className={`${inputCls} py-2`}
                   placeholder="직접 입력 (예: 항공우주, 환경공학 등)"
                 />
               </div>
-            </Field>
+            </FieldGroup>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="목표 대학 (선택)">

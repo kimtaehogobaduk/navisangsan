@@ -105,6 +105,12 @@ export function saveRoadmap(data: RoadmapData) {
   localStorage.setItem(ROADMAP_KEY, JSON.stringify(data));
 }
 
+export function clearRoadmap() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(ROADMAP_KEY);
+  localStorage.removeItem(DONE_KEY);
+}
+
 export function loadDone(): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {

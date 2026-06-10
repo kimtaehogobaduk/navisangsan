@@ -131,6 +131,7 @@ function Onboarding() {
   const [p, setP] = useState<StudentProfile>(makeEmptyProfile());
   const [customInterestInput, setCustomInterestInput] = useState("");
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
+  const [requiredFrom, setRequiredFrom] = useState<string | null>(null);
 
   const isHighSchool = HIGH_GRADES.includes(p.grade);
   const internalYearsAvailable = INTERNAL_YEARS_MAP[p.grade] ?? [];

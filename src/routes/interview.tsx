@@ -20,7 +20,7 @@ export const Route = createFileRoute("/interview")({
 });
 
 // ──────────── 공통 면접 질문 fallback (AI 생성 실패 시) ────────────
-const FALLBACK_COMMON_QUESTIONS = [
+const FALLBACK_commonQuestions = [
   "자기소개를 1분 안에 해주세요.",
   "우리 학교/학과에 지원한 동기는 무엇인가요?",
   "본인의 가장 큰 장점과 단점은 무엇인가요?",
@@ -61,7 +61,7 @@ function InterviewPage() {
   const [mode, setMode] = useState<Mode>("common");
 
   // 공통 면접 상태 (질문은 학교·학과 맞춤 AI 생성)
-  const [commonQuestions, setCommonQuestions] = useState<string[]>(FALLBACK_COMMON_QUESTIONS);
+  const [commonQuestions, setCommonQuestions] = useState<string[]>(FALLBACK_commonQuestions);
   const [regeneratingCommon, setRegeneratingCommon] = useState(false);
   const [qIdx, setQIdx] = useState(0);
   const [answer, setAnswer] = useState("");
@@ -118,7 +118,7 @@ function InterviewPage() {
     const ans = (useVoice ? speech.transcript : answer).trim();
     if (!ans || !profile) return;
     setLoading(true);
-    const q = COMMON_QUESTIONS[qIdx];
+    const q = commonQuestions[qIdx];
     const voiceMetrics = useVoice
       ? {
           wordsPerMinute: speech.duration > 0 ? Math.round((speech.wordCount / speech.duration) * 60) : 0,
@@ -246,7 +246,7 @@ function InterviewPage() {
     speech.resetTranscript();
   }
 
-  const currentCommonQ = COMMON_QUESTIONS[qIdx];
+  const currentCommonQ = commonQuestions[qIdx];
   const currentEssayQ = essayQuestions[essayQIdx] ?? null;
 
   return (
@@ -320,23 +320,23 @@ function InterviewPage() {
               <div className="rounded-2xl border border-border bg-surface p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-medium text-muted-foreground">
-                    질문 {qIdx + 1} / {COMMON_QUESTIONS.length}
+                    질문 {qIdx + 1} / {commonQuestions.length}
                   </span>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => { setQIdx((i) => (i - 1 + COMMON_QUESTIONS.length) % COMMON_QUESTIONS.length); setAnswer(""); speech.resetTranscript(); }}
+                      onClick={() => { setQIdx((i) => (i - 1 + commonQuestions.length) % commonQuestions.length); setAnswer(""); speech.resetTranscript(); }}
                       className="grid h-7 w-7 place-items-center rounded-lg border border-border text-muted-foreground hover:text-foreground transition"
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => { setQIdx((i) => (i + 1) % COMMON_QUESTIONS.length); setAnswer(""); speech.resetTranscript(); }}
+                      onClick={() => { setQIdx((i) => (i + 1) % commonQuestions.length); setAnswer(""); speech.resetTranscript(); }}
                       className="grid h-7 w-7 place-items-center rounded-lg border border-border text-muted-foreground hover:text-foreground transition"
                     >
                       <ChevronRight className="h-4 w-4" />
                     </button>
                     <button
-                      onClick={() => { setQIdx(Math.floor(Math.random() * COMMON_QUESTIONS.length)); setAnswer(""); speech.resetTranscript(); }}
+                      onClick={() => { setQIdx(Math.floor(Math.random() * commonQuestions.length)); setAnswer(""); speech.resetTranscript(); }}
                       className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground transition"
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> 랜덤

@@ -20,12 +20,19 @@ export type InternalYearRecord = {
   society?: string;
   science?: string;
   history?: string;
-  electives?: { subject: string; grade: string }[];
+  koreanHours?: string;
+  mathHours?: string;
+  englishHours?: string;
+  societyHours?: string;
+  scienceHours?: string;
+  historyHours?: string;
+  electives?: { subject: string; grade: string; hours?: string }[];
 };
 
 export type ElectiveSubjectEntry = {
   subject: string;
   grade?: string;
+  hours?: string;
 };
 
 export type StudentProfile = {
@@ -89,19 +96,19 @@ export function profileSummary(p: StudentProfile): string {
   if (p.internalYears?.length) {
     for (const yr of p.internalYears) {
       const subs = [
-        yr.korean && `국어 ${yr.korean}`,
-        yr.math && `수학 ${yr.math}`,
-        yr.english && `영어 ${yr.english}`,
-        yr.society && `사회 ${yr.society}`,
-        yr.science && `과학 ${yr.science}`,
-        yr.history && `한국사 ${yr.history}`,
+        yr.korean && `국어 ${yr.korean}등급${yr.koreanHours ? `/${yr.koreanHours}시수` : ""}`,
+        yr.math && `수학 ${yr.math}등급${yr.mathHours ? `/${yr.mathHours}시수` : ""}`,
+        yr.english && `영어 ${yr.english}등급${yr.englishHours ? `/${yr.englishHours}시수` : ""}`,
+        yr.society && `사회 ${yr.society}등급${yr.societyHours ? `/${yr.societyHours}시수` : ""}`,
+        yr.science && `과학 ${yr.science}등급${yr.scienceHours ? `/${yr.scienceHours}시수` : ""}`,
+        yr.history && `한국사 ${yr.history}등급${yr.historyHours ? `/${yr.historyHours}시수` : ""}`,
       ].filter(Boolean);
       lines.push(`내신 ${yr.year}: ${subs.join(" / ")}`);
     }
   }
 
   if (p.electiveSubjects?.length) {
-    lines.push(`선택과목: ${p.electiveSubjects.map(e => e.grade ? `${e.subject}(${e.grade})` : e.subject).join(", ")}`);
+    lines.push(`선택과목: ${p.electiveSubjects.map(e => e.grade ? `${e.subject}(${e.grade}등급${e.hours ? `/${e.hours}시수` : ""})` : `${e.subject}${e.hours ? `(${e.hours}시수)` : ""}`).join(", ")}`);
   }
 
   const allInterests = [...(p.interests ?? []), ...(p.customInterest ? [p.customInterest] : [])];

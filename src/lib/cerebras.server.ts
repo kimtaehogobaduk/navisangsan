@@ -16,7 +16,7 @@ function sleep(ms: number) {
 /** Returns all configured API keys in priority order. */
 function getApiKeys(): string[] {
   const keys: string[] = [];
-  for (let i = 1; i <= 10; i++) {
+  for (let i = 1; i <= 20; i++) {
     const key = i === 1
       ? process.env.CEREBRAS_API_KEY
       : process.env[`CEREBRAS_API_KEY_${i}`];
@@ -30,7 +30,7 @@ function getResearchKeys(): string[] {
   const keys: string[] = [];
   const primary = process.env.CEREBRAS_RESEARCH_API_KEY?.trim();
   if (primary) keys.push(primary);
-  for (let i = 2; i <= 5; i++) {
+  for (let i = 2; i <= 20; i++) {
     const k = process.env[`CEREBRAS_RESEARCH_API_KEY_${i}`]?.trim();
     if (k) keys.push(k);
   }

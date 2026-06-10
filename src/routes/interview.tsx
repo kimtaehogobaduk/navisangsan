@@ -718,7 +718,7 @@ function FeedbackCard({ item, index }: { item: FeedbackItem; index: number }) {
           <div>
             <p className="text-xs font-medium text-brand mb-2">AI 피드백</p>
             <div className="text-sm">
-              <Markdown>{item.feedback}</Markdown>
+              <Markdown storageKey={`interview-${index}`}>{item.feedback}</Markdown>
             </div>
           </div>
 

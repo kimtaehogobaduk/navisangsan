@@ -302,7 +302,7 @@ function Onboarding() {
 
       <form onSubmit={submit} className="mt-8">
         {/* ── STEP 0: 기본 정보 ── */}
-        {step === 0 && (
+        {currentStepKey === "basic" && (
           <div className="space-y-6">
             <SectionTitle>기본 정보</SectionTitle>
 

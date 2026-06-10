@@ -133,7 +133,7 @@ function SaengbuPage() {
               {copied ? "복사됨" : "복사"}
             </button>
           </div>
-          <Markdown>{result}</Markdown>
+          <Markdown storageKey="saengbu">{result}</Markdown>
         </article>
       )}
     </AppShell>

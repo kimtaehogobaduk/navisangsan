@@ -162,7 +162,7 @@ function CurriculumPage() {
               <Sparkles className="h-3 w-3" /> 다시 추천
             </button>
           </div>
-          <Markdown>{results[activeTab]!}</Markdown>
+          <Markdown storageKey={`curriculum-${activeTab}`}>{results[activeTab]!}</Markdown>
         </article>
       )}
     </AppShell>

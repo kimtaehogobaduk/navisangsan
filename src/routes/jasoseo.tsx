@@ -182,7 +182,7 @@ function JasoseoPage() {
               {copied ? "복사됨" : "복사"}
             </button>
           </div>
-          <Markdown>{result}</Markdown>
+          <Markdown storageKey="jasoseo">{result}</Markdown>
         </article>
       )}
     </AppShell>

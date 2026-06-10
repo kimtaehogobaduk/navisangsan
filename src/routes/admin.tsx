@@ -18,13 +18,14 @@ import {
   TRAINING_CATEGORIES,
   type TrainingDoc,
 } from "@/lib/training";
+import { queueYoutubeJobsFn, listTrainingJobsFn } from "@/lib/training-jobs.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "관리자 패널 — NAVI" }] }),
   component: AdminPage,
 });
 
-type AdminTab = "training" | "stats";
+type AdminTab = "training" | "youtube" | "stats";
 
 function AdminPage() {
   const navigate = useNavigate();

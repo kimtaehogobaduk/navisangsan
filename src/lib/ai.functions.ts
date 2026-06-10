@@ -288,8 +288,6 @@ ${FORMAT_RULES}
 
 ${TONE_RULES}
 
-${TONE_RULES}
-
 [학생 프로필]
 ${profileBlock(data.profile)}${admissionsContext}${await fetchSchoolAndTrainingContext(data.profile)}`;
 

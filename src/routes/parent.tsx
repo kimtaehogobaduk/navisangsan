@@ -117,7 +117,7 @@ function ParentPage() {
               <p className="text-xs text-muted-foreground">자녀 현황</p>
               <h2 className="mt-1 text-2xl font-bold tracking-tight">{profile.name}</h2>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                {profile.grade} · {profile.trackType} · {profile.region || "지역 미입력"}
+                {profile.grade} · {profile.trackType}
               </p>
               <p className="mt-1 text-sm">
                 목표:{" "}

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { BookOpen, Map, PenLine, Mic, Users, ArrowRight } from "lucide-react";
+import { BookOpen, Map, PenLine, Mic, Users, ArrowRight, Newspaper } from "lucide-react";
 
 export const Route = createFileRoute("/more")({
   head: () => ({ meta: [{ title: "더보기 — NAVI" }] }),
@@ -8,6 +8,13 @@ export const Route = createFileRoute("/more")({
 });
 
 const FEATURES = [
+  {
+    to: "/news",
+    icon: Newspaper,
+    title: "입시정보",
+    desc: "실시간 입시 뉴스 · 정책 변화 알림",
+    badge: null,
+  },
   {
     to: "/subjects",
     icon: BookOpen,

@@ -143,7 +143,9 @@ function Onboarding() {
       setP({ ...makeEmptyProfile(), ...existing });
       setCustomInterestInput(existing.customInterest ?? "");
     }
+    setRequiredFrom(consumeProfileRequired());
   }, []);
+
 
   function setMockGrade(key: keyof MockSubjectGrades, field: "grade" | "percentile", val: string) {
     setP((prev) => ({

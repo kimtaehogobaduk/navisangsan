@@ -317,7 +317,7 @@ function Onboarding() {
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="학년">
+              <FieldGroup label="학년">
                 <div className="flex flex-wrap gap-2">
                   {GRADES.map((g) => (
                     <Chip key={g} active={p.grade === g} onClick={() => setP({ ...p, grade: g })}>
@@ -325,8 +325,8 @@ function Onboarding() {
                     </Chip>
                   ))}
                 </div>
-              </Field>
-              <Field label="계열">
+              </FieldGroup>
+              <FieldGroup label="계열">
                 <div className="flex flex-wrap gap-2">
                   {TRACKS.map((t) => (
                     <Chip key={t} active={p.trackType === t} onClick={() => setP({ ...p, trackType: t })}>
@@ -334,7 +334,7 @@ function Onboarding() {
                     </Chip>
                   ))}
                 </div>
-              </Field>
+              </FieldGroup>
             </div>
 
             <Field label="학교">

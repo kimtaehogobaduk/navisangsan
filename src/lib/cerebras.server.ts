@@ -25,6 +25,38 @@ function getApiKeys(): string[] {
   return keys;
 }
 
+/** 정보검색/리서치 전용 키. 일반 채팅 키와 분리해 rate limit 격리. */
+function getResearchKeys(): string[] {
+  const keys: string[] = [];
+  const primary = process.env.CEREBRAS_RESEARCH_API_KEY?.trim();
+  if (primary) keys.push(primary);
+  for (let i = 2; i <= 5; i++) {
+    const k = process.env[`CEREBRAS_RESEARCH_API_KEY_${i}`]?.trim();
+    if (k) keys.push(k);
+  }
+  // fallback: 채팅 키로 폴백
+  if (!keys.length) return getApiKeys();
+  return keys;
+}
+
+export async function cerebrasResearchChat(opts: {
+  messages: ChatMessage[];
+  temperature?: number;
+  max_tokens?: number;
+}): Promise<string> {
+  const keys = getResearchKeys();
+  if (!keys.length) throw new Error("CEREBRAS_RESEARCH_API_KEY가 설정되지 않았습니다.");
+  for (const key of keys) {
+    const r = await callOnce(key, opts);
+    if (r.ok) return r.content;
+    if (r.status !== 429 && r.status !== 402 && r.status !== 401) {
+      throw new Error(`Cerebras(research) 호출 실패 (${r.status}). ${r.message}`);
+    }
+    await sleep(500);
+  }
+  throw new Error("Cerebras 리서치 키가 모두 한도에 도달했습니다.");
+}
+
 async function callOnce(
   apiKey: string,
   opts: { messages: ChatMessage[]; temperature?: number; max_tokens?: number },

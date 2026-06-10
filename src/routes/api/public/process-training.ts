@@ -3,7 +3,7 @@ import { YoutubeTranscript } from "youtube-transcript";
 import { Innertube } from "youtubei.js";
 
 const BATCH = 5;
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 8;
 
 function extractYoutubeId(url: string): string | null {
   const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/);
@@ -141,10 +141,10 @@ async function summarizeWithAI(opts: {
   publishDate?: string;
   category?: string;
 }): Promise<string> {
-  const { cerebrasResearchChat } = await import("@/lib/cerebras.server");
+  const { cerebrasResearchChat, cerebrasChat } = await import("@/lib/cerebras.server");
   const sourceNote = opts.hasTranscript
     ? "자막 전문이 제공된다."
-    : "자막이 없으므로 제목·채널·영상 설명(description)만으로 추론한다. 설명에 없는 사실은 절대 지어내지 말고, 추론한 부분은 '추정' 표기.";
+    : "자막이 없거나 빈약하므로 제목·채널·영상 설명·키워드·카테고리만으로 추론한다. 소스가 부족한 문장은 '추정' 표기.";
   const sys = `너는 한국 입시/교육 영상 요약 전문가다. 학생/학부모/입시컨설턴트가 참고할 핵심 지식을 한국어로 추출한다.
 ${sourceNote}
 규칙:
@@ -157,14 +157,21 @@ ${sourceNote}
     ? `[자막]\n${opts.transcript.slice(0, 18000)}`
     : `[영상 설명]\n${opts.description.slice(0, 8000)}`;
   const user = `[영상] ${opts.title}\n[채널] ${opts.channel}\n[카테고리] ${opts.category ?? ""}\n[게시일] ${opts.publishDate ?? ""}\n[키워드] ${(opts.keywords ?? []).join(", ")}\n\n${body}`;
-  return await cerebrasResearchChat({
-    messages: [
-      { role: "system", content: sys },
-      { role: "user", content: user },
-    ],
-    temperature: 0.3,
-    max_tokens: 3000,
-  });
+  const messages = [
+    { role: "system" as const, content: sys },
+    { role: "user" as const, content: user },
+  ];
+  try {
+    return await cerebrasResearchChat({ messages, temperature: 0.3, max_tokens: 3000 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/한도|429|rate limit|크레딧|인증/i.test(message)) throw error;
+    return await cerebrasChat({ messages, temperature: 0.3, max_tokens: 3000 });
+  }
+}
+
+function isTransientError(message: string): boolean {
+  return /한도|429|rate limit|timeout|timed out|network|fetch failed|temporar/i.test(message);
 }
 
 async function processOne(job: { id: string; url: string; category: string; attempts: number }) {
@@ -226,13 +233,13 @@ async function processOne(job: { id: string; url: string; category: string; atte
       .maybeSingle();
     if (latestJob?.status === "cancelled") return;
 
-    // 자막도 설명도 둘 다 거의 없으면 진짜 정보가 없는 케이스
-    if (!video.hasTranscript && video.description.trim().length < 20 && (video.keywords?.length ?? 0) < 3) {
-      throw new Error("자막과 설명이 모두 비어있어 추출할 정보가 없습니다.");
+    // 정말 자막이 전혀 없어도 메타데이터 기반으로 최대한 저장한다.
+    if (!video.description.trim()) {
+      video.description = "영상 설명이 비어 있어 제목/채널/키워드 중심으로 정리함.";
     }
 
     const summary = await summarizeWithAI(video);
-    const sourceTag = video.hasTranscript ? "자막 기반" : "설명/메타 기반";
+    const sourceTag = video.hasTranscript ? "자막 기반" : "설명/메타 기반(정보 제한 가능)";
     const content = `[채널] ${video.channel}\n[URL] ${job.url}\n[소스] ${sourceTag}\n[카테고리] ${video.category ?? ""}\n[게시일] ${video.publishDate ?? ""}\n[키워드] ${(video.keywords ?? []).join(", ")}\n\n${summary}`;
     const { data: doc, error: insErr } = await supabaseAdmin
       .from("training_docs")
@@ -253,11 +260,13 @@ async function processOne(job: { id: string; url: string; category: string; atte
       .eq("id", job.id);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    const failed = job.attempts + 1 >= MAX_ATTEMPTS;
+    const transient = isTransientError(msg);
+    const failed = !transient && job.attempts + 1 >= MAX_ATTEMPTS;
     await supabaseAdmin
       .from("training_jobs")
       .update({
         status: failed ? "failed" : "pending",
+        attempts: transient ? job.attempts : job.attempts + 1,
         error: msg.slice(0, 400),
         processed_at: failed ? new Date().toISOString() : null,
       })

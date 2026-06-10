@@ -341,9 +341,16 @@ function InterviewPage() {
               {/* 질문 카드 */}
               <div className="rounded-2xl border border-border bg-surface p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    질문 {qIdx + 1} / {commonQuestions.length}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      질문 {qIdx + 1} / {commonQuestions.length}
+                    </span>
+                    {profile?.school && (
+                      <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-medium text-brand">
+                        {profile.school} · {profile.targetMajor || "학과 미정"} 맞춤
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => { setQIdx((i) => (i - 1 + commonQuestions.length) % commonQuestions.length); setAnswer(""); speech.resetTranscript(); }}
@@ -362,6 +369,14 @@ function InterviewPage() {
                       className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground transition"
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> 랜덤
+                    </button>
+                    <button
+                      onClick={() => { if (profile) loadCommonQuestions(profile, true); }}
+                      disabled={regeneratingCommon || !profile}
+                      className="inline-flex items-center gap-1 rounded-lg border border-brand/40 bg-brand/10 px-2.5 py-1 text-xs font-medium text-brand transition hover:bg-brand/20 disabled:opacity-50"
+                    >
+                      {regeneratingCommon ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      재생성
                     </button>
                   </div>
                 </div>

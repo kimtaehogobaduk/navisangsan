@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
+import { markProfileRequired } from "@/lib/require-profile";
 import { generateCurriculum } from "@/lib/ai.functions";
 import { Map, Loader2, Sparkles, Tv, BookMarked, Trophy } from "lucide-react";
 import { Markdown } from "@/components/Markdown";
@@ -32,7 +33,7 @@ function CurriculumPage() {
   useEffect(() => {
     const p = loadProfile();
     if (!p) {
-      navigate({ to: "/onboarding" });
+      (markProfileRequired("커리큘럼 허브"), navigate({ to: "/onboarding" }));
       return;
     }
     setProfile(p);

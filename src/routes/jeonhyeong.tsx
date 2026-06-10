@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
+import { markProfileRequired } from "@/lib/require-profile";
 import { analyzeJeonhyeong } from "@/lib/ai.functions";
 import { Target, Loader2, Sparkles } from "lucide-react";
 import { Markdown } from "@/components/Markdown";
@@ -24,7 +25,7 @@ function JeonhyeongPage() {
   useEffect(() => {
     const p = loadProfile();
     if (!p) {
-      navigate({ to: "/onboarding" });
+      (markProfileRequired("전형분석"), navigate({ to: "/onboarding" }));
       return;
     }
     setProfile(p);

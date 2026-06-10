@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
+import { markProfileRequired } from "@/lib/require-profile";
 import { aiCoachChat } from "@/lib/ai.functions";
 import { Send, Loader2, Sparkles } from "lucide-react";
 import { Markdown } from "@/components/Markdown";
@@ -33,7 +34,7 @@ function Coach() {
   useEffect(() => {
     const p = loadProfile();
     if (!p) {
-      navigate({ to: "/onboarding" });
+      (markProfileRequired("AI 코치"), navigate({ to: "/onboarding" }));
       return;
     }
     setProfile(p);

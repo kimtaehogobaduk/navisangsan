@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
+import { markProfileRequired } from "@/lib/require-profile";
 import { buildSaengbu } from "@/lib/ai.functions";
 import { FileText, Loader2, Sparkles, Copy, Check } from "lucide-react";
 import { Markdown } from "@/components/Markdown";
@@ -27,7 +28,7 @@ function SaengbuPage() {
   useEffect(() => {
     const p = loadProfile();
     if (!p) {
-      navigate({ to: "/onboarding" });
+      (markProfileRequired("생기부 빌더"), navigate({ to: "/onboarding" }));
       return;
     }
     setProfile(p);

@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
+import { markProfileRequired } from "@/lib/require-profile";
 import { reviewJasoseo } from "@/lib/ai.functions";
 import { PenLine, Loader2, Sparkles, Copy, Check } from "lucide-react";
 import { Markdown } from "@/components/Markdown";
@@ -35,7 +36,7 @@ function JasoseoPage() {
   useEffect(() => {
     const p = loadProfile();
     if (!p) {
-      navigate({ to: "/onboarding" });
+      (markProfileRequired("자소서 첨삭"), navigate({ to: "/onboarding" }));
       return;
     }
     setProfile(p);

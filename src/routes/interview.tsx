@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
+import { markProfileRequired } from "@/lib/require-profile";
 import { getInterviewFeedback, generateEssayInterviewQuestions } from "@/lib/ai.functions";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import InterviewVideoPreview, { type VideoPreviewHandle } from "@/components/InterviewVideoPreview";
@@ -108,7 +109,7 @@ function InterviewPage() {
 
   useEffect(() => {
     const p = loadProfile();
-    if (!p) { navigate({ to: "/onboarding" }); return; }
+    if (!p) { (markProfileRequired("면접 시뮬레이터"), navigate({ to: "/onboarding" })); return; }
     setProfile(p);
   }, [navigate]);
 

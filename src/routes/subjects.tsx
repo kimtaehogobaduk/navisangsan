@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
+import { markProfileRequired } from "@/lib/require-profile";
 import { recommendSubjects } from "@/lib/ai.functions";
 import { BookOpen, Loader2, Sparkles, RefreshCw } from "lucide-react";
 import { Markdown } from "@/components/Markdown";
@@ -24,7 +25,7 @@ function SubjectsPage() {
   useEffect(() => {
     const p = loadProfile();
     if (!p) {
-      navigate({ to: "/onboarding" });
+      (markProfileRequired("선택과목 추천"), navigate({ to: "/onboarding" }));
       return;
     }
     setProfile(p);

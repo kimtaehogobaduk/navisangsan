@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { RoadmapView } from "@/components/RoadmapView";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
+import { markProfileRequired } from "@/lib/require-profile";
 import { loadRoadmap, saveRoadmap, loadDone, saveDone, type RoadmapData } from "@/lib/roadmap";
 import { getTrainingContext } from "@/lib/training";
 import { generateRoadmap } from "@/lib/ai.functions";
@@ -31,7 +32,7 @@ function Dashboard() {
 
   useEffect(() => {
     const p = loadProfile();
-    if (!p) { navigate({ to: "/onboarding" }); return; }
+    if (!p) { (markProfileRequired("로드맵"), navigate({ to: "/onboarding" })); return; }
     setProfile(p);
     const cached = loadRoadmap();
     if (cached) setRoadmap(cached);

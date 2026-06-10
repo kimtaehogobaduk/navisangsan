@@ -220,8 +220,7 @@ function Onboarding() {
     e.preventDefault();
     saveProfile({ ...p, customInterest: customInterestInput });
     if (p.school?.trim()) {
-      // 비동기 백그라운드 학교 조사 (대기하지 않음)
-      researchSchoolFn({ data: { school: p.school.trim(), region: p.region?.trim() || undefined } }).catch(() => {});
+      researchSchoolFn({ data: { school: p.school.trim() } }).catch(() => {});
     }
     navigate({ to: "/dashboard" });
   }

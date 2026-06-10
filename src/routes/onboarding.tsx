@@ -400,7 +400,7 @@ function Onboarding() {
         )}
 
         {/* ── STEP 2: 내신 성적 (고1+만) ── */}
-        {step === 2 && isHighSchool && (
+        {currentStepKey === "internal" && isHighSchool && (
           <div className="space-y-8">
             <SectionTitle>내신 성적</SectionTitle>
             <p className="text-xs text-muted-foreground -mt-6">

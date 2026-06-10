@@ -56,6 +56,119 @@ export type Database = {
         }
         Relationships: []
       }
+      school_research: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          region: string | null
+          school_key: string
+          school_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data: Json
+          id?: string
+          region?: string | null
+          school_key: string
+          school_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          region?: string | null
+          school_key?: string
+          school_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      training_docs: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          id: string
+          source_type: string
+          source_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          content: string
+          created_at?: string
+          id?: string
+          source_type?: string
+          source_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          id?: string
+          source_type?: string
+          source_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      training_jobs: {
+        Row: {
+          attempts: number
+          category: string
+          created_at: string
+          doc_id: string | null
+          error: string | null
+          id: string
+          job_type: string
+          processed_at: string | null
+          status: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          attempts?: number
+          category?: string
+          created_at?: string
+          doc_id?: string | null
+          error?: string | null
+          id?: string
+          job_type?: string
+          processed_at?: string | null
+          status?: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          attempts?: number
+          category?: string
+          created_at?: string
+          doc_id?: string | null
+          error?: string | null
+          id?: string
+          job_type?: string
+          processed_at?: string | null
+          status?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_jobs_doc_id_fkey"
+            columns: ["doc_id"]
+            isOneToOne: false
+            referencedRelation: "training_docs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_data: {
         Row: {
           key: string

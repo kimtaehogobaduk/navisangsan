@@ -114,8 +114,13 @@ async function hydrateFromCloud(userId: string) {
   }
 
   if (changed) {
-    // 컴포넌트들이 새 데이터를 읽도록 알림
+    // 컴포넌트들이 새 데이터를 읽도록 알림 + 첫 로그인 시 1회 새로고침
     window.dispatchEvent(new Event("navi:cloud-hydrated"));
+    const reloadFlag = "__navi_cloud_reloaded_for__" + userId;
+    if (!sessionStorage.getItem(reloadFlag)) {
+      sessionStorage.setItem(reloadFlag, "1");
+      window.location.reload();
+    }
   }
 }
 

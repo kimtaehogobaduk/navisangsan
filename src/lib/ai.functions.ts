@@ -277,7 +277,7 @@ export const aiCoachChat = createServerFn({ method: "POST" })
 ${FORMAT_RULES}
 
 [학생 프로필]
-${profileBlock(data.profile)}${admissionsContext}`;
+${profileBlock(data.profile)}${admissionsContext}${await fetchSchoolAndTrainingContext(data.profile)}`;
 
       // 대화 히스토리가 길어지면 토큰이 고갈되어 응답이 끊김
       // 최근 16개 메시지만 유지 (user 8 + assistant 8 교환)

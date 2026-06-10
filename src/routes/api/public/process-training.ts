@@ -137,6 +137,9 @@ async function summarizeWithAI(opts: {
   description: string;
   transcript: string;
   hasTranscript: boolean;
+  keywords?: string[];
+  publishDate?: string;
+  category?: string;
 }): Promise<string> {
   const { cerebrasResearchChat } = await import("@/lib/cerebras.server");
   const sourceNote = opts.hasTranscript
@@ -216,7 +219,12 @@ async function processOne(job: { id: string; url: string; category: string; atte
       };
     }
 
-    if (video.status === "cancelled") return;
+    const { data: latestJob } = await supabaseAdmin
+      .from("training_jobs")
+      .select("status")
+      .eq("id", job.id)
+      .maybeSingle();
+    if (latestJob?.status === "cancelled") return;
 
     // 자막도 설명도 둘 다 거의 없으면 진짜 정보가 없는 케이스
     if (!video.hasTranscript && video.description.trim().length < 20 && (video.keywords?.length ?? 0) < 3) {

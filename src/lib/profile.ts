@@ -20,6 +20,12 @@ export type InternalYearRecord = {
   society?: string;
   science?: string;
   history?: string;
+  koreanHours?: string;
+  mathHours?: string;
+  englishHours?: string;
+  societyHours?: string;
+  scienceHours?: string;
+  historyHours?: string;
   electives?: { subject: string; grade: string }[];
 };
 

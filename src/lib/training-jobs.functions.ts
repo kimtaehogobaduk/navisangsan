@@ -14,7 +14,7 @@ function extractYoutubeUrls(input: string): string[] {
 export const queueYoutubeJobsFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      urls: z.array(z.string().min(1)).min(1).max(1000),
+      urls: z.array(z.string().min(1)).min(1).max(10000),
       category: z.string().min(1).max(60).default("기타"),
     }),
   )

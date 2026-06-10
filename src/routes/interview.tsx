@@ -60,7 +60,9 @@ function InterviewPage() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [mode, setMode] = useState<Mode>("common");
 
-  // 공통 면접 상태
+  // 공통 면접 상태 (질문은 학교·학과 맞춤 AI 생성)
+  const [commonQuestions, setCommonQuestions] = useState<string[]>(FALLBACK_COMMON_QUESTIONS);
+  const [regeneratingCommon, setRegeneratingCommon] = useState(false);
   const [qIdx, setQIdx] = useState(0);
   const [answer, setAnswer] = useState("");
   const [loading, setLoading] = useState(false);

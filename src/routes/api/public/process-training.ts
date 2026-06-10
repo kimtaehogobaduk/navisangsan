@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { YoutubeTranscript } from "youtube-transcript";
+import { Innertube } from "youtubei.js";
 
 const BATCH = 5;
 const MAX_ATTEMPTS = 3;
@@ -20,16 +21,71 @@ async function fetchYoutubeMeta(videoId: string): Promise<{ title: string; chann
   }
 }
 
-async function summarizeWithAI(title: string, channel: string, transcript: string): Promise<string> {
+type VideoData = {
+  title: string;
+  channel: string;
+  description: string;
+  transcript: string;
+  hasTranscript: boolean;
+};
+
+async function fetchViaInnertube(videoId: string): Promise<VideoData | null> {
+  try {
+    const yt = await Innertube.create({ lang: "ko", location: "KR", retrieve_player: false });
+    const info = await yt.getInfo(videoId);
+    const title = info.basic_info.title ?? videoId;
+    const channel = info.basic_info.author ?? "";
+    const description = info.basic_info.short_description ?? "";
+
+    let transcript = "";
+    try {
+      const t = await info.getTranscript();
+      const segs = t?.transcript?.content?.body?.initial_segments ?? [];
+      transcript = segs
+        .map((s) => (s as { snippet?: { text?: string } }).snippet?.text ?? "")
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .trim();
+    } catch {
+      // 자막 트랙 없음 (자동 생성도 없음)
+    }
+
+    return {
+      title,
+      channel,
+      description,
+      transcript,
+      hasTranscript: transcript.length >= 50,
+    };
+  } catch (e) {
+    console.warn("[innertube] failed", e instanceof Error ? e.message : e);
+    return null;
+  }
+}
+
+async function summarizeWithAI(opts: {
+  title: string;
+  channel: string;
+  description: string;
+  transcript: string;
+  hasTranscript: boolean;
+}): Promise<string> {
   const { cerebrasResearchChat } = await import("@/lib/cerebras.server");
-  const sys = `너는 한국 입시/교육 영상 요약 전문가다. 주어진 유튜브 영상 자막을 학생/학부모/입시컨설턴트가 참고할 수 있도록 핵심 지식을 한국어로 추출한다.
+  const sourceNote = opts.hasTranscript
+    ? "자막 전문이 제공된다."
+    : "자막이 없으므로 제목·채널·영상 설명(description)만으로 추론한다. 설명에 없는 사실은 절대 지어내지 말고, 추론한 부분은 '추정' 표기.";
+  const sys = `너는 한국 입시/교육 영상 요약 전문가다. 학생/학부모/입시컨설턴트가 참고할 핵심 지식을 한국어로 추출한다.
+${sourceNote}
 규칙:
 - 마크다운 출력.
 - ## 핵심 요약 (3~5줄)
 - ## 주요 인사이트 (불릿 6~10개, 입시 전략/대학별 정보/세특/과목 학습법 등 구체적 사실)
 - ## 학생 액션 아이템 (체크박스 4~6개)
-- 영상에 없는 내용 지어내지 말 것.`;
-  const user = `[영상] ${title}\n[채널] ${channel}\n\n[자막]\n${transcript.slice(0, 18000)}`;
+- 소스에 없는 내용 지어내지 말 것.`;
+  const body = opts.hasTranscript
+    ? `[자막]\n${opts.transcript.slice(0, 18000)}`
+    : `[영상 설명]\n${opts.description.slice(0, 8000)}`;
+  const user = `[영상] ${opts.title}\n[채널] ${opts.channel}\n\n${body}`;
   return await cerebrasResearchChat({
     messages: [
       { role: "system", content: sys },
@@ -51,25 +107,39 @@ async function processOne(job: { id: string; url: string; category: string; atte
     const id = extractYoutubeId(job.url);
     if (!id) throw new Error("유효한 유튜브 URL이 아닙니다.");
 
-    const [meta, segments] = await Promise.all([
-      fetchYoutubeMeta(id),
-      YoutubeTranscript.fetchTranscript(id, { lang: "ko" }).catch(() =>
-        YoutubeTranscript.fetchTranscript(id).catch(() => []),
-      ),
-    ]);
-    const transcript = segments.map((s) => s.text).join(" ").replace(/\s+/g, " ").trim();
-    if (!transcript || transcript.length < 50) throw new Error("자막을 가져올 수 없는 영상입니다.");
+    // 1차: youtubei.js (자동 생성 자막 + 메타 + 설명 모두 가져옴)
+    let video = await fetchViaInnertube(id);
 
-    const title = meta?.title ?? id;
-    const channel = meta?.channel ?? "";
-    const summary = await summarizeWithAI(title, channel, transcript);
+    // 2차: youtubei가 실패하면 youtube-transcript + oembed 폴백
+    if (!video) {
+      const [meta, segs] = await Promise.all([
+        fetchYoutubeMeta(id),
+        YoutubeTranscript.fetchTranscript(id, { lang: "ko" })
+          .catch(() => YoutubeTranscript.fetchTranscript(id).catch(() => [])),
+      ]);
+      const transcript = segs.map((s) => s.text).join(" ").replace(/\s+/g, " ").trim();
+      video = {
+        title: meta?.title ?? id,
+        channel: meta?.channel ?? "",
+        description: "",
+        transcript,
+        hasTranscript: transcript.length >= 50,
+      };
+    }
 
-    const content = `[채널] ${channel}\n[URL] ${job.url}\n\n${summary}`;
+    // 자막도 설명도 둘 다 거의 없으면 진짜 정보가 없는 케이스
+    if (!video.hasTranscript && video.description.trim().length < 80) {
+      throw new Error("자막과 설명이 모두 비어있어 추출할 정보가 없습니다.");
+    }
+
+    const summary = await summarizeWithAI(video);
+    const sourceTag = video.hasTranscript ? "자막 기반" : "설명/메타 기반";
+    const content = `[채널] ${video.channel}\n[URL] ${job.url}\n[소스] ${sourceTag}\n\n${summary}`;
     const { data: doc, error: insErr } = await supabaseAdmin
       .from("training_docs")
       .insert({
         category: job.category,
-        title: title.slice(0, 200),
+        title: video.title.slice(0, 200),
         content,
         source_type: "youtube",
         source_url: job.url,

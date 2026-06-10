@@ -531,7 +531,7 @@ function Onboarding() {
         )}
 
         {/* ── STEP 4: 관심분야 + 목표 ── */}
-        {((step === 4 && isHighSchool) || (step === 3 && !isHighSchool)) && (
+        {currentStepKey === "interest" && (
           <div className="space-y-6">
             <SectionTitle>관심분야 · 목표</SectionTitle>
 

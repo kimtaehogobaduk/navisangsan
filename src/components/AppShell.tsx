@@ -1,14 +1,14 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
-import { Compass, MessageCircle, FileText, Target, Home, Newspaper, LogIn, ShieldCheck, LogOut } from "lucide-react";
+import { Compass, MessageCircle, FileText, Target, Home, Newspaper, LogIn, ShieldCheck, LogOut, LayoutGrid } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const nav = [
   { to: "/dashboard", label: "로드맵", icon: Home },
   { to: "/coach", label: "AI 코치", icon: MessageCircle },
-  { to: "/news", label: "입시정보", icon: Newspaper },
   { to: "/saengbu", label: "생기부", icon: FileText },
   { to: "/jeonhyeong", label: "전형분석", icon: Target },
+  { to: "/more", label: "더보기", icon: LayoutGrid },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {

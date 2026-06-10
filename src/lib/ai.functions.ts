@@ -165,6 +165,7 @@ export const aiCoachChat = createServerFn({ method: "POST" })
       const { cerebrasChat } = await import("./cerebras.server");
 
       // 입시 정보 DB에서 관련 정보 가져오기 (학년에 맞는 것 + 공통)
+      // 상위 5개만 사용해 시스템 프롬프트 토큰 절약
       let admissionsContext = "";
       try {
         const { getAllAdmissionsInfo } = await import("./db.server");
@@ -178,34 +179,36 @@ export const aiCoachChat = createServerFn({ method: "POST" })
             if (!isFiveTier && item.target_grade === "고3n수") return true;
             return false;
           });
-          // 중요도 상위 10개만 컨텍스트로 사용 (토큰 절약)
-          const top = relevant.slice(0, 10);
+          const top = relevant.slice(0, 5);
           if (top.length > 0) {
-            admissionsContext = "\n\n[NAVI 실시간 입시 정보 DB — 답변 시 참고]\n"
+            admissionsContext = "\n\n[NAVI 실시간 입시 정보 — 최우선 참고]\n"
               + top.map((item) =>
-                `• [${item.info_type}/${item.target_grade}] ${item.title}: ${item.summary}` +
-                (item.bullets?.length ? "\n  " + item.bullets.slice(0, 3).join(" | ") : "")
+                `• ${item.title}: ${item.summary}`
               ).join("\n");
           }
         }
       } catch {
-        // DB 미사용 시 무시하고 기본 응답
+        // DB 미연결 시 무시
       }
 
       const system = `너는 NAVI의 AI 진로 코치다. 한국 입시(고교학점제, 수시 학생부종합/교과/논술, 정시, 생활기록부 세부능력특기사항)에 정통하다.
 대치동 컨설팅 수준의 전략을 친근하고 명확하게 제공한다. 항상 한국어로 답하고, 구조화된 답변(번호/굵은 항목/실행 액션)을 사용한다.
 모르는 정보는 단정하지 말고 추가로 어떤 정보가 필요한지 묻는다. 학생을 격려하되 현실적인 조언을 한다.
-아래 실시간 입시 정보가 제공되면 이를 최우선 참고 데이터로 활용해 정확한 답변을 제공한다.
+실시간 입시 정보가 제공된 경우 이를 최우선 참고 데이터로 활용한다.
 
 ${FORMAT_RULES}
 
 [학생 프로필]
 ${profileBlock(data.profile)}${admissionsContext}`;
 
+      // 대화 히스토리가 길어지면 토큰이 고갈되어 응답이 끊김
+      // 최근 16개 메시지만 유지 (user 8 + assistant 8 교환)
+      const trimmedMessages = data.messages.slice(-16);
+
       const reply = await cerebrasChat({
-        messages: [{ role: "system", content: system }, ...data.messages],
+        messages: [{ role: "system", content: system }, ...trimmedMessages],
         temperature: 0.5,
-        max_tokens: 1200,
+        max_tokens: 8192,
       });
       return { reply };
     } catch (error) {
@@ -262,7 +265,7 @@ ${FORMAT_RULES}
           { role: "user", content: user },
         ],
         temperature: 0.6,
-        max_tokens: 1800,
+        max_tokens: 4096,
       });
       return { reply };
     } catch (error) {
@@ -326,7 +329,7 @@ ${FORMAT_RULES}
           { role: "user", content: user },
         ],
         temperature: 0.4,
-        max_tokens: 2000,
+        max_tokens: 4096,
       });
       return { reply };
     } catch (error) {
@@ -437,7 +440,7 @@ ${FORMAT_RULES}
           { role: "user", content: user },
         ],
         temperature: 0.4,
-        max_tokens: 2000,
+        max_tokens: 4096,
       });
       return { reply };
     } catch (error) {
@@ -544,7 +547,7 @@ ${FORMAT_RULES}
           { role: "user", content: user },
         ],
         temperature: 0.5,
-        max_tokens: 2000,
+        max_tokens: 4096,
       });
       return { reply };
     } catch (error) {
@@ -613,7 +616,7 @@ ${FORMAT_RULES}
           { role: "user", content: user },
         ],
         temperature: 0.4,
-        max_tokens: 2500,
+        max_tokens: 4096,
       });
       return { reply };
     } catch (error) {
@@ -661,7 +664,7 @@ ${profileBlock(data.profile)}`;
       const reply = await cerebrasChat({
         messages: [{ role: "system", content: system }, ...data.messages],
         temperature: 0.6,
-        max_tokens: 1000,
+        max_tokens: 4096,
       });
       return { reply };
     } catch (error) {
@@ -730,7 +733,7 @@ ${FORMAT_RULES}
           { role: "user", content: user },
         ],
         temperature: 0.4,
-        max_tokens: 1800,
+        max_tokens: 4096,
       });
       return { reply };
     } catch (error) {

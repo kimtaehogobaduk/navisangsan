@@ -28,7 +28,7 @@ function getApiKeys(): string[] {
 async function callOnce(
   apiKey: string,
   opts: { messages: ChatMessage[]; temperature?: number; max_tokens?: number },
-): Promise<{ ok: true; content: string } | { ok: false; status: number; message: string }> {
+): Promise<{ ok: true; content: string; truncated?: boolean } | { ok: false; status: number; message: string }> {
   const res = await fetch(CEREBRAS_URL, {
     method: "POST",
     headers: {
@@ -39,7 +39,7 @@ async function callOnce(
       model: CEREBRAS_MODEL,
       messages: opts.messages,
       temperature: opts.temperature ?? 0.4,
-      max_tokens: opts.max_tokens ?? 1500,
+      max_tokens: opts.max_tokens ?? 8192,
     }),
   });
 
@@ -51,9 +51,18 @@ async function callOnce(
   }
 
   const json = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
+    choices?: Array<{ message?: { content?: string }; finish_reason?: string }>;
   };
-  return { ok: true, content: json.choices?.[0]?.message?.content?.trim() ?? "" };
+
+  const choice = json.choices?.[0];
+  const content = choice?.message?.content?.trim() ?? "";
+  const truncated = choice?.finish_reason === "length";
+
+  if (truncated) {
+    console.warn(`[Cerebras] ⚠️ 응답이 max_tokens(${opts.max_tokens ?? 8192})에 의해 잘렸습니다. finish_reason=length`);
+  }
+
+  return { ok: true, content, truncated };
 }
 
 /**
@@ -81,12 +90,10 @@ export async function cerebrasChat(opts: {
 
     if (status === 429) {
       if (keyIdx < keys.length - 1) {
-        // More keys available — wait 1s then try next key
         console.warn(`[Cerebras] ${keyLabel} rate limit, 1초 대기 후 다음 키로 전환…`);
         await sleep(1000);
         continue;
       }
-      // Last key — fall through to Phase 2
       console.warn(`[Cerebras] 모든 키 rate limit 도달, 지수 백오프 재시도 시작…`);
       break;
     }

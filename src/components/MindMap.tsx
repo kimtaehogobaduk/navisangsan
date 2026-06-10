@@ -7,7 +7,7 @@ interface MindMapProps {
 }
 
 const CAT_ORDER: Array<RoadmapTask["category"]> = [
-  "academics", "exam", "records", "essay", "activity", "mental",
+  "study", "exam", "records", "essay", "activity", "mental",
 ];
 
 export function MindMap({ month }: MindMapProps) {

@@ -14,7 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      admissions_info: {
+        Row: {
+          bullets: Json | null
+          created_at: string | null
+          fetched_at: string | null
+          id: number
+          importance: number | null
+          info_type: string
+          summary: string
+          target_grade: string
+          title: string
+          topic_key: string
+          universities: Json | null
+        }
+        Insert: {
+          bullets?: Json | null
+          created_at?: string | null
+          fetched_at?: string | null
+          id?: number
+          importance?: number | null
+          info_type?: string
+          summary: string
+          target_grade?: string
+          title: string
+          topic_key: string
+          universities?: Json | null
+        }
+        Update: {
+          bullets?: Json | null
+          created_at?: string | null
+          fetched_at?: string | null
+          id?: number
+          importance?: number | null
+          info_type?: string
+          summary?: string
+          target_grade?: string
+          title?: string
+          topic_key?: string
+          universities?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -24,6 +24,7 @@ import { Route as CurriculumRouteImport } from './routes/curriculum'
 import { Route as CoachRouteImport } from './routes/coach'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicProcessTrainingRouteImport } from './routes/api/public/process-training'
 
 const SubjectsRoute = SubjectsRouteImport.update({
   id: '/subjects',
@@ -100,6 +101,12 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicProcessTrainingRoute =
+  ApiPublicProcessTrainingRouteImport.update({
+    id: '/api/public/process-training',
+    path: '/api/public/process-training',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/parent': typeof ParentRoute
   '/saengbu': typeof SaengbuRoute
   '/subjects': typeof SubjectsRoute
+  '/api/public/process-training': typeof ApiPublicProcessTrainingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -134,6 +142,7 @@ export interface FileRoutesByTo {
   '/parent': typeof ParentRoute
   '/saengbu': typeof SaengbuRoute
   '/subjects': typeof SubjectsRoute
+  '/api/public/process-training': typeof ApiPublicProcessTrainingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -152,6 +161,7 @@ export interface FileRoutesById {
   '/parent': typeof ParentRoute
   '/saengbu': typeof SaengbuRoute
   '/subjects': typeof SubjectsRoute
+  '/api/public/process-training': typeof ApiPublicProcessTrainingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/parent'
     | '/saengbu'
     | '/subjects'
+    | '/api/public/process-training'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -188,6 +199,7 @@ export interface FileRouteTypes {
     | '/parent'
     | '/saengbu'
     | '/subjects'
+    | '/api/public/process-training'
   id:
     | '__root__'
     | '/'
@@ -205,6 +217,7 @@ export interface FileRouteTypes {
     | '/parent'
     | '/saengbu'
     | '/subjects'
+    | '/api/public/process-training'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -223,6 +236,7 @@ export interface RootRouteChildren {
   ParentRoute: typeof ParentRoute
   SaengbuRoute: typeof SaengbuRoute
   SubjectsRoute: typeof SubjectsRoute
+  ApiPublicProcessTrainingRoute: typeof ApiPublicProcessTrainingRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -332,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/process-training': {
+      id: '/api/public/process-training'
+      path: '/api/public/process-training'
+      fullPath: '/api/public/process-training'
+      preLoaderRoute: typeof ApiPublicProcessTrainingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -351,6 +372,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParentRoute: ParentRoute,
   SaengbuRoute: SaengbuRoute,
   SubjectsRoute: SubjectsRoute,
+  ApiPublicProcessTrainingRoute: ApiPublicProcessTrainingRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

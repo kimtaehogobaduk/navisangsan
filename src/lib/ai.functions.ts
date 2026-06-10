@@ -186,6 +186,50 @@ function profileBlock(p?: z.infer<typeof ProfileSchema>): string {
   return lines.length ? lines.join("\n") : "(학생 프로필 정보 없음)";
 }
 
+/** DB에서 학교 조사 캐시 + 학습 자료를 가져와 시스템 프롬프트에 붙일 블록을 만든다. */
+async function fetchSchoolAndTrainingContext(profile?: z.infer<typeof ProfileSchema>): Promise<string> {
+  const parts: string[] = [];
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    if (profile?.school) {
+      const key = `${(profile.region ?? "").trim()}|${profile.school.trim()}`.toLowerCase();
+      const { data: row } = await supabaseAdmin
+        .from("school_research")
+        .select("data")
+        .eq("school_key", key)
+        .maybeSingle();
+      const r = row?.data as
+        | { tier?: string; type?: string; district_note?: string; internal_competition?: string; grade_to_university?: string; notes?: string }
+        | undefined;
+      if (r) {
+        parts.push(
+          `\n[학교 심층 조사 — ${profile.school}]\n` +
+            `· 분류: ${r.type ?? "?"} / 위상: ${r.tier ?? "?"}\n` +
+            `· 지역/학군: ${r.district_note ?? "?"}\n` +
+            `· 내신 경쟁: ${r.internal_competition ?? "?"}\n` +
+            `· 등급별 진학선: ${r.grade_to_university ?? "?"}\n` +
+            (r.notes ? `· 특이사항: ${r.notes}\n` : "") +
+            `→ 위 학교 데이터에 기반해 내신/실적을 해석하라. 일반고 기준으로 일률 평가 금지.`,
+        );
+      }
+    }
+    const { data: docs } = await supabaseAdmin
+      .from("training_docs")
+      .select("category, title, content")
+      .order("created_at", { ascending: false })
+      .limit(40);
+    if (docs?.length) {
+      parts.push(
+        "\n[관리자 등록 학습 자료 — 우선 참고]\n" +
+          docs.map((d) => `[${d.category}] ${d.title}\n${(d.content as string).slice(0, 1500)}`).join("\n\n"),
+      );
+    }
+  } catch (e) {
+    console.warn("[ai] context load 실패", e);
+  }
+  return parts.join("\n");
+}
+
 // ============ AI Coach Chat ============
 export const aiCoachChat = createServerFn({ method: "POST" })
   .inputValidator(
@@ -233,7 +277,7 @@ export const aiCoachChat = createServerFn({ method: "POST" })
 ${FORMAT_RULES}
 
 [학생 프로필]
-${profileBlock(data.profile)}${admissionsContext}`;
+${profileBlock(data.profile)}${admissionsContext}${await fetchSchoolAndTrainingContext(data.profile)}`;
 
       // 대화 히스토리가 길어지면 토큰이 고갈되어 응답이 끊김
       // 최근 16개 메시지만 유지 (user 8 + assistant 8 교환)
@@ -291,7 +335,8 @@ ${FORMAT_RULES}
 - [ ] 아이디어 2 — 한 줄 설명
 - [ ] 아이디어 3 — 한 줄 설명`;
 
-      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n[과목/단원] ${data.subject}\n[활동 내용]\n${data.activity}\n\n[목표 학과] ${major}\n\n위 정보로 세특을 작성해줘.`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}${ctx}\n\n[과목/단원] ${data.subject}\n[활동 내용]\n${data.activity}\n\n[목표 학과] ${major}\n\n위 정보로 세특을 작성해줘.`;
 
       const reply = await cerebrasChat({
         messages: [
@@ -355,7 +400,8 @@ ${FORMAT_RULES}
 ---
 *정확한 합격선은 매년 변동 가능성이 있음.*`;
 
-      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n[학생 질문]\n${data.question ?? "내 상황에 맞는 전형 분석과 로드맵을 짜줘."}`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}${ctx}\n\n[학생 질문]\n${data.question ?? "내 상황에 맞는 전형 분석과 로드맵을 짜줘."}`;
 
       const reply = await cerebrasChat({
         messages: [
@@ -392,7 +438,8 @@ ${training}
 출력 JSON 구조 (이 형식 그대로):
 {"overview":{"diagnosis":"현황진단 1-2문장","strengths":["강점1","강점2","강점3"],"weaknesses":["약점1","약점2","약점3"],"coreStrategy":"핵심전략 1문장","applicationRatio":"수시OO%/정시OO%"},"months":[{"phase":"단기","monthLabel":"1개월차","theme":"#6366f1","keyEvents":["주요일정1","주요일정2","주요일정3"],"studyStrategy":{"korean":"국어전략 2문장","math":"수학전략 2문장","english":"영어전략 2문장","scienceOrSociety":"탐구/사회전략 2문장","weakSubject":"취약과목명: 보완법 2문장","weeklyHours":40},"examStrategy":{"focus":"이달 수능 핵심포인트","mockExam":"모의고사 활용전략","practiceType":"문제유형 연습방향"},"recordStrategy":{"seukuk":["세특아이디어1","세특아이디어2","세특아이디어3"],"activity":"동아리/자율활동전략","careerActivity":"진로활동전략","keyKeyword":"이달 생기부 핵심키워드"},"essayStrategy":"자소서/면접전략","mentalStrategy":"멘탈·건강관리","priorities":["🔥 긴급: 우선순위1","📚 중요: 우선순위2","✍️ 필수: 우선순위3"],"checkItems":[{"id":"m0-c0","category":"study","text":"과제명","week":1,"priority":"high","hours":2},{"id":"m0-c1","category":"study","text":"과제명","week":2,"priority":"medium","hours":1},{"id":"m0-c2","category":"study","text":"과제명","week":3,"priority":"high","hours":2},{"id":"m0-c3","category":"exam","text":"과제명","week":1,"priority":"high","hours":2},{"id":"m0-c4","category":"exam","text":"과제명","week":3,"priority":"medium","hours":2},{"id":"m0-c5","category":"records","text":"과제명","week":1,"priority":"high","hours":3},{"id":"m0-c6","category":"records","text":"과제명","week":2,"priority":"high","hours":2},{"id":"m0-c7","category":"records","text":"과제명","week":4,"priority":"medium","hours":2},{"id":"m0-c8","category":"activity","text":"과제명","week":2,"priority":"medium","hours":2},{"id":"m0-c9","category":"activity","text":"과제명","week":4,"priority":"low","hours":1},{"id":"m0-c10","category":"mental","text":"과제명","week":1,"priority":"medium","hours":1},{"id":"m0-c11","category":"essay","text":"과제명","week":3,"priority":"low","hours":1}]},{"phase":"중기","monthLabel":"2개월차","theme":"#8b5cf6","keyEvents":[...],"studyStrategy":{...},"examStrategy":{...},"recordStrategy":{...},"essayStrategy":"...","mentalStrategy":"...","priorities":["...","...","..."],"checkItems":[{"id":"m1-c0",...},...]},{"phase":"장기","monthLabel":"3개월차","theme":"#06b6d4","keyEvents":[...],"studyStrategy":{...},"examStrategy":{...},"recordStrategy":{...},"essayStrategy":"...","mentalStrategy":"...","priorities":["...","...","..."],"checkItems":[{"id":"m2-c0",...},...]}],"applicationStrategy":{"suSi":[{"type":"학생부종합","suitability":"⭐⭐⭐⭐","reason":"이유"},{"type":"학생부교과","suitability":"⭐⭐⭐","reason":"이유"},{"type":"논술","suitability":"⭐⭐","reason":"이유"},{"type":"실기/특기","suitability":"⭐","reason":"이유"}],"recommendedApps":[{"card":1,"university":"대학명","major":"학과명","type":"전형","note":"도전권"},{"card":2,"university":"대학명","major":"학과명","type":"전형","note":"도전권"},{"card":3,"university":"대학명","major":"학과명","type":"전형","note":"적정권"},{"card":4,"university":"대학명","major":"학과명","type":"전형","note":"적정권"},{"card":5,"university":"대학명","major":"학과명","type":"전형","note":"안정권"},{"card":6,"university":"대학명","major":"학과명","type":"전형","note":"안정권"}],"jungSiStrategy":"정시전략 2-3문장"}}`;
 
-      const user = `[학생 프로필]\n${profileStr}\n\n위 학생의 3개월 입시 로드맵 JSON을 출력하라. JSON만 출력.`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[학생 프로필]\n${profileStr}${ctx}\n\n위 학생의 3개월 입시 로드맵 JSON을 출력하라. JSON만 출력.`;
 
       const raw = await cerebrasChat({
         messages: [

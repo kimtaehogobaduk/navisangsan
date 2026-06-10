@@ -2,8 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
   loadProfile, saveProfile,
-  type StudentProfile, type MockSubjectGrades, type InternalYearRecord, type ElectiveSubjectEntry,
+  type StudentProfile, type MockSubjectGrades, type InternalYearRecord,
 } from "@/lib/profile";
+import { clearRoadmap } from "@/lib/roadmap";
 import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles, Plus, X, Info } from "lucide-react";
 import { consumeProfileRequired } from "@/lib/require-profile";
 import { researchSchoolFn } from "@/lib/school.functions";
@@ -222,6 +223,15 @@ function Onboarding() {
     }));
   }
 
+  function setElectiveHours(subject: string, hours: string) {
+    setP((prev) => ({
+      ...prev,
+      electiveSubjects: (prev.electiveSubjects ?? []).map((e) =>
+        e.subject === subject ? { ...e, hours } : e
+      ),
+    }));
+  }
+
   function isElectiveSelected(subject: string) {
     return !!(p.electiveSubjects ?? []).find((e) => e.subject === subject);
   }
@@ -246,7 +256,9 @@ function Onboarding() {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    saveProfile({ ...p, customInterest: customInterestInput });
+    const profile = { ...p, customInterest: customInterestInput.trim() };
+    saveProfile(profile);
+    clearRoadmap();
     if (p.school?.trim()) {
       researchSchoolFn({ data: { school: p.school.trim() } }).catch(() => {});
     }

@@ -9,6 +9,13 @@ export const Route = createFileRoute("/more")({
 
 const FEATURES = [
   {
+    to: "/news",
+    icon: Newspaper,
+    title: "입시정보",
+    desc: "실시간 입시 뉴스 · 정책 변화 알림",
+    badge: null,
+  },
+  {
     to: "/subjects",
     icon: BookOpen,
     title: "선택과목 추천",

@@ -624,7 +624,7 @@ ${FORMAT_RULES}
     }
   });
 
-// ============ 면접 시뮬레이터 ============
+// ============ 면접 시뮬레이터 (대화형 — 기존 유지) ============
 export const interviewChat = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
@@ -667,6 +667,184 @@ ${profileBlock(data.profile)}`;
         max_tokens: 4096,
       });
       return { reply };
+    } catch (error) {
+      normalizeAiError(error);
+    }
+  });
+
+// ============ 면접 답변 피드백 (단일 Q&A 채점) ============
+export const getInterviewFeedback = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      question: z.string(),
+      answer: z.string(),
+      profile: ProfileSchema.optional(),
+      mode: z.enum(["common", "essay", "followup"]).default("common"),
+      essay: z.string().optional(),
+      isVoice: z.boolean().optional(),
+      voiceMetrics: z.object({
+        wordsPerMinute: z.number(),
+        wordCount: z.number(),
+        durationSec: z.number(),
+      }).optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { cerebrasChat } = await import("./cerebras.server");
+
+      const voiceSection = data.isVoice && data.voiceMetrics
+        ? `\n\n[음성 답변 지표]\n- 단어 수: ${data.voiceMetrics.wordCount}\n- 말하기 속도: ${data.voiceMetrics.wordsPerMinute} 단어/분\n- 소요 시간: ${data.voiceMetrics.durationSec}초`
+        : "";
+
+      const essaySection = data.essay ? `\n\n[학생이 작성한 자기소개서]\n${data.essay.slice(0, 1000)}` : "";
+
+      const audioScoreGuide = data.isVoice
+        ? `\n\n[음성 분석 — 반드시 포함]\n각 항목을 20점 만점으로 채점해 아래 형식 그대로 출력:\n발음·명확성: XX점\n말하기 속도: XX점\n유창성: XX점\n억양·강조: XX점\n전달력: XX점`
+        : "";
+
+      const followupGuide = data.mode === "followup"
+        ? "이 답변은 앞선 피드백 후 이어진 추가 질문에 대한 답변이다. 전체 흐름을 고려해 평가한다."
+        : "";
+
+      const system = `너는 대학 입시 면접 전문 코치다. 학생의 면접 답변을 채점하고 구체적인 피드백을 제공한다.
+
+[출력 형식 — 반드시 이 순서 그대로]
+첫 번째 줄: 총점: XX점 (0~100 정수)
+그 다음 빈 줄 하나.
+그 이후:
+
+## 💡 종합 평가
+> 2~3줄 요약. 핵심 강점과 약점을 솔직하게.
+
+## ✅ 잘한 점
+- 구체적인 근거와 함께 2~3가지
+
+## 🔧 개선할 점
+- 구체적인 보완 방법과 함께 2~3가지
+
+## 💬 모범 답변 방향
+답변을 어떻게 구성하면 더 좋을지 1~2문장으로.${audioScoreGuide}
+
+[평가 기준]
+- 내용의 구체성 (단순 나열 vs 스토리텔링)
+- 논리적 구조 (두괄식·STAR 기법 등)
+- 학교/학과 적합성
+- 진정성·진솔함
+${followupGuide}
+
+[학생 프로필]
+${profileBlock(data.profile)}${essaySection}`;
+
+      const userMsg = `[면접 질문]\n${data.question}\n\n[학생 답변]\n${data.answer}${voiceSection}`;
+
+      const raw = await cerebrasChat({
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: userMsg },
+        ],
+        temperature: 0.4,
+        max_tokens: 4096,
+      });
+
+      // 총점 추출
+      const scorePatterns = [
+        /^총점\s*:?\s*(\d+)\s*점/im,
+        /총점\s*:?\s*(\d+)\s*점/i,
+        /총점.*?(\d+)\s*점/i,
+      ];
+      let score: number | null = null;
+      for (const p of scorePatterns) {
+        const m = raw.match(p);
+        if (m) { const v = parseInt(m[1]); if (v >= 0 && v <= 100) { score = v; break; } }
+      }
+
+      // 음성 분석 점수 추출
+      let audioScores: { pronunciation: number; speed: number; fluency: number; intonation: number; delivery: number } | null = null;
+      if (data.isVoice) {
+        const pronunciation = raw.match(/발음[·]?명확성\s*:?\s*(\d+)점/)?.[1];
+        const speed = raw.match(/말하기\s*속도\s*:?\s*(\d+)점/)?.[1];
+        const fluency = raw.match(/유창성\s*:?\s*(\d+)점/)?.[1];
+        const intonation = raw.match(/억양[·]?강조\s*:?\s*(\d+)점/)?.[1];
+        const delivery = raw.match(/전달력\s*:?\s*(\d+)점/)?.[1];
+        if (pronunciation && speed && fluency && intonation && delivery) {
+          audioScores = {
+            pronunciation: parseInt(pronunciation),
+            speed: parseInt(speed),
+            fluency: parseInt(fluency),
+            intonation: parseInt(intonation),
+            delivery: parseInt(delivery),
+          };
+        }
+      }
+
+      // 추가 질문 생성
+      const followupRaw = await cerebrasChat({
+        messages: [
+          {
+            role: "system",
+            content: `너는 면접관이다. 학생의 답변을 읽고 자연스럽게 이어지는 꼬리 질문 1개를 생성한다. 질문만 출력. 다른 설명 없이 질문 문장만.`,
+          },
+          {
+            role: "user",
+            content: `질문: ${data.question}\n답변: ${data.answer}\n\n꼬리 질문:`,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 150,
+      });
+
+      return { feedback: raw, score, audioScores, followUpQuestion: followupRaw.trim() };
+    } catch (error) {
+      normalizeAiError(error);
+    }
+  });
+
+// ============ 자소서 기반 면접 질문 생성 ============
+export const generateEssayInterviewQuestions = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      essay: z.string().min(10),
+      profile: ProfileSchema.optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { cerebrasChat } = await import("./cerebras.server");
+
+      const system = `너는 대학 입시 면접관이다. 학생의 자기소개서를 읽고 실제 면접에서 사용할 질문 5개를 생성한다.
+
+[규칙]
+- 자기소개서에서 구체적으로 언급된 활동, 경험, 가치관을 파고드는 심층 질문
+- 단순 확인 질문이 아닌, 추가 설명을 유도하는 개방형 질문
+- 학생의 목표 학과와 연결되는 질문 포함
+- 압박 질문 1개 포함 (논리적 약점을 파고드는)
+- JSON 배열만 출력: ["질문1", "질문2", "질문3", "질문4", "질문5"]
+
+[학생 프로필]
+${profileBlock(data.profile)}`;
+
+      const raw = await cerebrasChat({
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: `[자기소개서]\n${data.essay.slice(0, 2000)}` },
+        ],
+        temperature: 0.5,
+        max_tokens: 800,
+      });
+
+      // JSON 파싱
+      const match = raw.match(/\[[\s\S]*\]/);
+      if (match) {
+        try {
+          const questions = JSON.parse(match[0]) as string[];
+          if (Array.isArray(questions) && questions.length > 0) return { questions };
+        } catch { /* */ }
+      }
+
+      // 줄바꿈 fallback
+      const lines = raw.split("\n").map(l => l.replace(/^[\d\.\-\*\s]+/, "").trim()).filter(l => l.length > 10);
+      return { questions: lines.slice(0, 5) };
     } catch (error) {
       normalizeAiError(error);
     }

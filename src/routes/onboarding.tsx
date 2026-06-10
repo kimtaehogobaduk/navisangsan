@@ -168,7 +168,7 @@ function Onboarding() {
     }));
   }
 
-    function setInternalGrade(yearLabel: InternalYearRecord["year"], key: string, val: string) {
+  function setInternalGrade(yearLabel: InternalYearRecord["year"], key: string, val: string) {
     setP((prev) => {
       const existing = prev.internalYears ?? [];
       const idx = existing.findIndex((y) => y.year === yearLabel);
@@ -437,7 +437,7 @@ function Onboarding() {
           <div className="space-y-8">
             <SectionTitle>내신 성적</SectionTitle>
             <p className="text-xs text-muted-foreground -mt-6">
-              학년별 과목 등급을 입력해주세요.
+              학년별 과목 등급과 시수를 입력해주세요. 같은 등급이라도 시수가 높은 과목의 영향이 더 큽니다.
               {FIVE_TIER_GRADES.includes(p.grade as typeof FIVE_TIER_GRADES[number])
                 ? " (2022 개정 교육과정 · 5등급제 적용)"
                 : " (1~9등급, 미입력 가능)"}
@@ -473,12 +473,12 @@ function Onboarding() {
                             type="number"
                             min="1"
                             max="10"
-                            placeholder="단위"
+                            placeholder="시수"
                             value={getInternalHours(yearLabel, key)}
                             onChange={(e) => setInternalHours(yearLabel, key, e.target.value)}
                             className={`${selectCls} w-full pr-7 px-2`}
                           />
-                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">단위</span>
+                          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">시수</span>
                         </div>
                       </div>
                     </div>
@@ -495,7 +495,7 @@ function Onboarding() {
           <div className="space-y-5">
             <SectionTitle>선택과목</SectionTitle>
             <p className="text-xs text-muted-foreground -mt-4">
-              수강 중이거나 수강 예정인 과목을 선택하고 등급을 입력해주세요.
+              수강 중이거나 수강 예정인 과목을 선택하고 등급·시수를 입력해주세요.
             </p>
 
             {ELECTIVE_CATEGORIES.map(({ category, subjects }) => (
@@ -533,7 +533,7 @@ function Onboarding() {
                     </div>
                     {subjects.filter(isElectiveSelected).length > 0 && (
                       <div className="mt-3 space-y-2">
-                        <p className="text-xs text-muted-foreground">선택 과목 등급 입력 (선택 사항)</p>
+                        <p className="text-xs text-muted-foreground">선택 과목 등급·시수 입력 (선택 사항)</p>
                         {subjects.filter(isElectiveSelected).map((subj) => (
                           <div key={subj} className="flex items-center gap-3">
                             <span className="text-xs font-medium text-foreground w-32 shrink-0">{subj}</span>
@@ -546,6 +546,16 @@ function Onboarding() {
                                 <option key={g} value={g}>{g ? `${g}등급` : "미입력"}</option>
                               ))}
                             </select>
+                            <input
+                              type="number"
+                              min="1"
+                              max="20"
+                              inputMode="numeric"
+                              value={p.electiveSubjects?.find((e) => e.subject === subj)?.hours ?? ""}
+                              onChange={(e) => setElectiveHours(subj, e.target.value)}
+                              className={`${selectCls} w-20`}
+                              placeholder="시수"
+                            />
                           </div>
                         ))}
                       </div>
@@ -565,7 +575,7 @@ function Onboarding() {
                       key={e.subject}
                       className="inline-flex items-center gap-1 rounded-full border border-brand/30 bg-brand/10 px-2 py-1 text-xs text-brand"
                     >
-                      {e.subject}{e.grade ? ` ${e.grade}등급` : ""}
+                      {e.subject}{e.grade ? ` ${e.grade}등급` : ""}{e.hours ? ` · ${e.hours}시수` : ""}
                       <button type="button" onClick={() => toggleElective(e.subject)} className="ml-1 opacity-60 hover:opacity-100">
                         <X className="h-3 w-3" />
                       </button>

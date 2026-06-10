@@ -136,7 +136,11 @@ function Onboarding() {
 
   const isHighSchool = HIGH_GRADES.includes(p.grade);
   const internalYearsAvailable = INTERNAL_YEARS_MAP[p.grade] ?? [];
-  const totalSteps = isHighSchool ? 5 : 4;
+  const stepKeys: ("basic" | "mock" | "internal" | "elective" | "interest")[] = isHighSchool
+    ? ["basic", "mock", "internal", "elective", "interest"]
+    : ["basic", "mock", "elective", "interest"];
+  const totalSteps = stepKeys.length;
+  const currentStepKey = stepKeys[Math.min(step, stepKeys.length - 1)];
 
   useEffect(() => {
     const existing = loadProfile();
@@ -146,6 +150,11 @@ function Onboarding() {
     }
     setRequiredFrom(consumeProfileRequired());
   }, []);
+
+  // 학년 변경 등으로 totalSteps가 줄어드는 경우 step을 안전하게 클램프
+  useEffect(() => {
+    if (step > totalSteps - 1) setStep(totalSteps - 1);
+  }, [totalSteps, step]);
 
 
   function setMockGrade(key: keyof MockSubjectGrades, field: "grade" | "percentile", val: string) {
@@ -293,7 +302,7 @@ function Onboarding() {
 
       <form onSubmit={submit} className="mt-8">
         {/* ── STEP 0: 기본 정보 ── */}
-        {step === 0 && (
+        {currentStepKey === "basic" && (
           <div className="space-y-6">
             <SectionTitle>기본 정보</SectionTitle>
 
@@ -308,7 +317,7 @@ function Onboarding() {
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="학년">
+              <FieldGroup label="학년">
                 <div className="flex flex-wrap gap-2">
                   {GRADES.map((g) => (
                     <Chip key={g} active={p.grade === g} onClick={() => setP({ ...p, grade: g })}>
@@ -316,8 +325,8 @@ function Onboarding() {
                     </Chip>
                   ))}
                 </div>
-              </Field>
-              <Field label="계열">
+              </FieldGroup>
+              <FieldGroup label="계열">
                 <div className="flex flex-wrap gap-2">
                   {TRACKS.map((t) => (
                     <Chip key={t} active={p.trackType === t} onClick={() => setP({ ...p, trackType: t })}>
@@ -325,7 +334,7 @@ function Onboarding() {
                     </Chip>
                   ))}
                 </div>
-              </Field>
+              </FieldGroup>
             </div>
 
             <Field label="학교">
@@ -340,7 +349,7 @@ function Onboarding() {
         )}
 
         {/* ── STEP 1: 모의고사 성적 ── */}
-        {step === 1 && (
+        {currentStepKey === "mock" && (
           <div className="space-y-6">
             <SectionTitle>모의고사 성적</SectionTitle>
             <p className="text-xs text-muted-foreground -mt-4">
@@ -391,7 +400,7 @@ function Onboarding() {
         )}
 
         {/* ── STEP 2: 내신 성적 (고1+만) ── */}
-        {step === 2 && isHighSchool && (
+        {currentStepKey === "internal" && isHighSchool && (
           <div className="space-y-8">
             <SectionTitle>내신 성적</SectionTitle>
             <p className="text-xs text-muted-foreground -mt-6">
@@ -435,7 +444,7 @@ function Onboarding() {
         )}
 
         {/* ── STEP 3: 선택과목 ── */}
-        {((step === 3 && isHighSchool) || (step === 2 && !isHighSchool)) && (
+        {currentStepKey === "elective" && (
           <div className="space-y-5">
             <SectionTitle>선택과목</SectionTitle>
             <p className="text-xs text-muted-foreground -mt-4">
@@ -522,11 +531,11 @@ function Onboarding() {
         )}
 
         {/* ── STEP 4: 관심분야 + 목표 ── */}
-        {((step === 4 && isHighSchool) || (step === 3 && !isHighSchool)) && (
+        {currentStepKey === "interest" && (
           <div className="space-y-6">
             <SectionTitle>관심분야 · 목표</SectionTitle>
 
-            <Field label="관심 분야 (복수 선택)">
+            <FieldGroup label="관심 분야 (복수 선택)">
               <div className="flex flex-wrap gap-2">
                 {INTERESTS_PRESET.map((i) => (
                   <Chip key={i} active={p.interests.includes(i)} onClick={() => toggleInterest(i)}>
@@ -539,11 +548,12 @@ function Onboarding() {
                 <input
                   value={customInterestInput}
                   onChange={(e) => setCustomInterestInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
                   className={`${inputCls} py-2`}
                   placeholder="직접 입력 (예: 항공우주, 환경공학 등)"
                 />
               </div>
-            </Field>
+            </FieldGroup>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="목표 대학 (선택)">
@@ -623,6 +633,17 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="mb-2 block text-xs font-medium text-muted-foreground">{label}</span>
       {children}
     </label>
+  );
+}
+
+// 복수 폼 컨트롤(칩 버튼 + 입력 등)을 포함할 때 사용. <label>을 쓰지 않아
+// 사양 위반/예기치 않은 폼 제출 전파를 막는다.
+function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="block">
+      <span className="mb-2 block text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </div>
   );
 }
 

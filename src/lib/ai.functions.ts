@@ -186,6 +186,50 @@ function profileBlock(p?: z.infer<typeof ProfileSchema>): string {
   return lines.length ? lines.join("\n") : "(학생 프로필 정보 없음)";
 }
 
+/** DB에서 학교 조사 캐시 + 학습 자료를 가져와 시스템 프롬프트에 붙일 블록을 만든다. */
+async function fetchSchoolAndTrainingContext(profile?: z.infer<typeof ProfileSchema>): Promise<string> {
+  const parts: string[] = [];
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    if (profile?.school) {
+      const key = `${(profile.region ?? "").trim()}|${profile.school.trim()}`.toLowerCase();
+      const { data: row } = await supabaseAdmin
+        .from("school_research")
+        .select("data")
+        .eq("school_key", key)
+        .maybeSingle();
+      const r = row?.data as
+        | { tier?: string; type?: string; district_note?: string; internal_competition?: string; grade_to_university?: string; notes?: string }
+        | undefined;
+      if (r) {
+        parts.push(
+          `\n[학교 심층 조사 — ${profile.school}]\n` +
+            `· 분류: ${r.type ?? "?"} / 위상: ${r.tier ?? "?"}\n` +
+            `· 지역/학군: ${r.district_note ?? "?"}\n` +
+            `· 내신 경쟁: ${r.internal_competition ?? "?"}\n` +
+            `· 등급별 진학선: ${r.grade_to_university ?? "?"}\n` +
+            (r.notes ? `· 특이사항: ${r.notes}\n` : "") +
+            `→ 위 학교 데이터에 기반해 내신/실적을 해석하라. 일반고 기준으로 일률 평가 금지.`,
+        );
+      }
+    }
+    const { data: docs } = await supabaseAdmin
+      .from("training_docs")
+      .select("category, title, content")
+      .order("created_at", { ascending: false })
+      .limit(40);
+    if (docs?.length) {
+      parts.push(
+        "\n[관리자 등록 학습 자료 — 우선 참고]\n" +
+          docs.map((d) => `[${d.category}] ${d.title}\n${(d.content as string).slice(0, 1500)}`).join("\n\n"),
+      );
+    }
+  } catch (e) {
+    console.warn("[ai] context load 실패", e);
+  }
+  return parts.join("\n");
+}
+
 // ============ AI Coach Chat ============
 export const aiCoachChat = createServerFn({ method: "POST" })
   .inputValidator(

@@ -9,7 +9,7 @@ function extractYoutubeId(url: string): string | null {
 export const queueYoutubeJobsFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      urls: z.array(z.string().url()).min(1).max(1000),
+      urls: z.array(z.string().min(1)).min(1).max(1000),
       category: z.string().min(1).max(60).default("기타"),
     }),
   )
@@ -18,8 +18,14 @@ export const queueYoutubeJobsFn = createServerFn({ method: "POST" })
     const rows = data.urls
       .map((u) => u.trim())
       .filter(Boolean)
-      .filter((u) => extractYoutubeId(u))
-      .map((url) => ({ job_type: "youtube", url, category: data.category, status: "pending" }));
+      .map((u) => extractYoutubeId(u))
+      .filter((id): id is string => !!id)
+      .map((id) => ({
+        job_type: "youtube",
+        url: `https://www.youtube.com/watch?v=${id}`,
+        category: data.category,
+        status: "pending",
+      }));
     if (!rows.length) return { queued: 0, skipped: data.urls.length };
     const { error } = await supabaseAdmin.from("training_jobs").insert(rows);
     if (error) throw new Error(error.message);

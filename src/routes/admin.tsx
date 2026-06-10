@@ -458,13 +458,18 @@ function YoutubeTab() {
         </div>
         <div className="mt-3 max-h-80 overflow-auto space-y-1">
           {jobs.map((j) => (
-            <div key={j.id} className="flex items-center justify-between gap-2 rounded-lg border border-border/50 px-3 py-1.5 text-xs">
-              <span className="truncate flex-1">{j.url}</span>
-              <span className={
-                j.status === "done" ? "text-green-400" :
-                j.status === "failed" ? "text-red-400" :
-                j.status === "processing" ? "text-blue-400" : "text-amber-400"
-              }>{j.status}</span>
+            <div key={j.id} className="rounded-lg border border-border/50 px-3 py-1.5 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate flex-1">{j.url}</span>
+                <span className={
+                  j.status === "done" ? "text-green-400" :
+                  j.status === "failed" ? "text-red-400" :
+                  j.status === "processing" ? "text-blue-400" : "text-amber-400"
+                }>{j.status}</span>
+              </div>
+              {j.error && (
+                <div className="mt-1 text-[11px] text-red-400/80 break-words">⚠ {j.error}</div>
+              )}
             </div>
           ))}
           {!jobs.length && <p className="text-xs text-muted-foreground">등록된 작업이 없습니다.</p>}

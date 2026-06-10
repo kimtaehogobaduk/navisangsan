@@ -12,13 +12,14 @@ import {
   Brain,
   LogOut,
 } from "lucide-react";
+import { TRAINING_CATEGORIES, type TrainingDoc } from "@/lib/training";
 import {
-  loadTrainingDocs,
-  saveTrainingDocs,
-  TRAINING_CATEGORIES,
-  type TrainingDoc,
-} from "@/lib/training";
-import { queueYoutubeJobsFn, listTrainingJobsFn } from "@/lib/training-jobs.functions";
+  queueYoutubeJobsFn,
+  listTrainingJobsFn,
+  listTrainingDocsFn,
+  saveTrainingDocFn,
+  deleteTrainingDocFn,
+} from "@/lib/training-jobs.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "관리자 패널 — NAVI" }] }),
@@ -35,13 +36,29 @@ function AdminPage() {
   const [form, setForm] = useState({ category: TRAINING_CATEGORIES[0], title: "", content: "" });
   const [showForm, setShowForm] = useState(false);
 
+  async function refreshDocs() {
+    try {
+      const res = await listTrainingDocsFn();
+      const mapped: TrainingDoc[] = (res.docs ?? []).map((d: { id: string; category: string; title: string; content: string; created_at: string }) => ({
+        id: d.id,
+        category: d.category,
+        title: d.title,
+        content: d.content,
+        createdAt: d.created_at,
+      }));
+      setDocs(mapped);
+    } catch (e) {
+      console.error("listTrainingDocs failed", e);
+    }
+  }
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (sessionStorage.getItem("navi.admin") !== "true") {
       navigate({ to: "/login" });
       return;
     }
-    setDocs(loadTrainingDocs());
+    void refreshDocs();
   }, [navigate]);
 
   function logout() {
@@ -61,31 +78,34 @@ function AdminPage() {
     setShowForm(true);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.title.trim() || !form.content.trim()) return;
-    let updated: TrainingDoc[];
-    if (editingId) {
-      updated = docs.map((d) =>
-        d.id === editingId ? { ...d, ...form } : d,
-      );
-    } else {
-      const newDoc: TrainingDoc = {
-        id: `doc-${Date.now()}`,
-        ...form,
-        createdAt: new Date().toISOString(),
-      };
-      updated = [...docs, newDoc];
+    try {
+      await saveTrainingDocFn({
+        data: {
+          id: editingId && /^[0-9a-f-]{36}$/i.test(editingId) ? editingId : undefined,
+          category: form.category,
+          title: form.title,
+          content: form.content,
+        },
+      });
+      await refreshDocs();
+    } catch (e) {
+      console.error("saveTrainingDoc failed", e);
     }
-    setDocs(updated);
-    saveTrainingDocs(updated);
     setShowForm(false);
     setEditingId(null);
   }
 
-  function handleDelete(id: string) {
-    const updated = docs.filter((d) => d.id !== id);
-    setDocs(updated);
-    saveTrainingDocs(updated);
+  async function handleDelete(id: string) {
+    try {
+      if (/^[0-9a-f-]{36}$/i.test(id)) {
+        await deleteTrainingDocFn({ data: { id } });
+      }
+      await refreshDocs();
+    } catch (e) {
+      console.error("deleteTrainingDoc failed", e);
+    }
   }
 
   const groupedDocs = TRAINING_CATEGORIES.reduce<Record<string, TrainingDoc[]>>((acc, cat) => {

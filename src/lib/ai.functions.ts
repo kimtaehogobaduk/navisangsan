@@ -888,6 +888,52 @@ ${profileBlock(data.profile)}`;
     }
   });
 
+// ============ 공통 면접 질문 생성 (학교·학과 맞춤) ============
+export const generateCommonInterviewQuestions = createServerFn({ method: "POST" })
+  .inputValidator(z.object({ profile: ProfileSchema.optional() }))
+  .handler(async ({ data }) => {
+    try {
+      const { cerebrasChat } = await import("./cerebras.server");
+      const system = `너는 대학 입시 면접관이다. 학생 프로필을 바탕으로 실제 면접에서 사용할 **공통 면접 질문 20개**를 생성한다.
+
+[규칙]
+- 인성·일반·상황·동기·가치관 영역을 골고루 포함
+- **학생 학교 유형**(영재고/과학고/외고/국제고/자사고/일반고/특성화고 등)을 강하게 반영
+  · 영재고·과학고: 연구 동기, 학문 탐구의 깊이, 학회/논문 경험, 이공계 윤리 등 학문적 톤
+  · 외고·국제고: 글로벌 감각, 다문화 이해, 어문·사회 통찰, 국제 이슈에 대한 견해
+  · 전국형 자사고: 학교 프로그램에서의 주체적 성취, 비교과 깊이
+  · 일반고: 환경적 제약 속 자기주도성, 성장 서사, 학교 활동 활용도
+  · 특성화·마이스터고: 진로·직무 적합성, 실무 경험
+- 질문 중 **최소 7개**는 학생의 **목표 학과**(전공적합성·진로 비전)에 직결되도록 구성
+- 단순 확인이 아닌 개방형, 한 문장으로 명확하게
+- JSON 배열만 출력: ["질문1", ..., "질문20"]. 다른 텍스트 절대 금지.
+
+[학생 프로필]
+${profileBlock(data.profile)}`;
+
+      const raw = await cerebrasChat({
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: "위 학생에게 적합한 공통 면접 질문 20개를 JSON 배열로 출력하라." },
+        ],
+        temperature: 0.6,
+        max_tokens: 2000,
+      });
+
+      const match = raw.match(/\[[\s\S]*\]/);
+      if (match) {
+        try {
+          const questions = JSON.parse(match[0]) as string[];
+          if (Array.isArray(questions) && questions.length > 0) return { questions };
+        } catch { /* */ }
+      }
+      const lines = raw.split("\n").map(l => l.replace(/^[\d\.\-\*\s"']+/, "").replace(/["']\s*,?\s*$/, "").trim()).filter(l => l.length > 8);
+      return { questions: lines.slice(0, 20) };
+    } catch (error) {
+      normalizeAiError(error);
+    }
+  });
+
 // ============ 학부모 주간 리포트 ============
 export const generateParentReport = createServerFn({ method: "POST" })
   .inputValidator(

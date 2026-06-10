@@ -335,7 +335,8 @@ ${FORMAT_RULES}
 - [ ] 아이디어 2 — 한 줄 설명
 - [ ] 아이디어 3 — 한 줄 설명`;
 
-      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n[과목/단원] ${data.subject}\n[활동 내용]\n${data.activity}\n\n[목표 학과] ${major}\n\n위 정보로 세특을 작성해줘.`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}${ctx}\n\n[과목/단원] ${data.subject}\n[활동 내용]\n${data.activity}\n\n[목표 학과] ${major}\n\n위 정보로 세특을 작성해줘.`;
 
       const reply = await cerebrasChat({
         messages: [
@@ -399,7 +400,8 @@ ${FORMAT_RULES}
 ---
 *정확한 합격선은 매년 변동 가능성이 있음.*`;
 
-      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n[학생 질문]\n${data.question ?? "내 상황에 맞는 전형 분석과 로드맵을 짜줘."}`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}${ctx}\n\n[학생 질문]\n${data.question ?? "내 상황에 맞는 전형 분석과 로드맵을 짜줘."}`;
 
       const reply = await cerebrasChat({
         messages: [
@@ -436,7 +438,8 @@ ${training}
 출력 JSON 구조 (이 형식 그대로):
 {"overview":{"diagnosis":"현황진단 1-2문장","strengths":["강점1","강점2","강점3"],"weaknesses":["약점1","약점2","약점3"],"coreStrategy":"핵심전략 1문장","applicationRatio":"수시OO%/정시OO%"},"months":[{"phase":"단기","monthLabel":"1개월차","theme":"#6366f1","keyEvents":["주요일정1","주요일정2","주요일정3"],"studyStrategy":{"korean":"국어전략 2문장","math":"수학전략 2문장","english":"영어전략 2문장","scienceOrSociety":"탐구/사회전략 2문장","weakSubject":"취약과목명: 보완법 2문장","weeklyHours":40},"examStrategy":{"focus":"이달 수능 핵심포인트","mockExam":"모의고사 활용전략","practiceType":"문제유형 연습방향"},"recordStrategy":{"seukuk":["세특아이디어1","세특아이디어2","세특아이디어3"],"activity":"동아리/자율활동전략","careerActivity":"진로활동전략","keyKeyword":"이달 생기부 핵심키워드"},"essayStrategy":"자소서/면접전략","mentalStrategy":"멘탈·건강관리","priorities":["🔥 긴급: 우선순위1","📚 중요: 우선순위2","✍️ 필수: 우선순위3"],"checkItems":[{"id":"m0-c0","category":"study","text":"과제명","week":1,"priority":"high","hours":2},{"id":"m0-c1","category":"study","text":"과제명","week":2,"priority":"medium","hours":1},{"id":"m0-c2","category":"study","text":"과제명","week":3,"priority":"high","hours":2},{"id":"m0-c3","category":"exam","text":"과제명","week":1,"priority":"high","hours":2},{"id":"m0-c4","category":"exam","text":"과제명","week":3,"priority":"medium","hours":2},{"id":"m0-c5","category":"records","text":"과제명","week":1,"priority":"high","hours":3},{"id":"m0-c6","category":"records","text":"과제명","week":2,"priority":"high","hours":2},{"id":"m0-c7","category":"records","text":"과제명","week":4,"priority":"medium","hours":2},{"id":"m0-c8","category":"activity","text":"과제명","week":2,"priority":"medium","hours":2},{"id":"m0-c9","category":"activity","text":"과제명","week":4,"priority":"low","hours":1},{"id":"m0-c10","category":"mental","text":"과제명","week":1,"priority":"medium","hours":1},{"id":"m0-c11","category":"essay","text":"과제명","week":3,"priority":"low","hours":1}]},{"phase":"중기","monthLabel":"2개월차","theme":"#8b5cf6","keyEvents":[...],"studyStrategy":{...},"examStrategy":{...},"recordStrategy":{...},"essayStrategy":"...","mentalStrategy":"...","priorities":["...","...","..."],"checkItems":[{"id":"m1-c0",...},...]},{"phase":"장기","monthLabel":"3개월차","theme":"#06b6d4","keyEvents":[...],"studyStrategy":{...},"examStrategy":{...},"recordStrategy":{...},"essayStrategy":"...","mentalStrategy":"...","priorities":["...","...","..."],"checkItems":[{"id":"m2-c0",...},...]}],"applicationStrategy":{"suSi":[{"type":"학생부종합","suitability":"⭐⭐⭐⭐","reason":"이유"},{"type":"학생부교과","suitability":"⭐⭐⭐","reason":"이유"},{"type":"논술","suitability":"⭐⭐","reason":"이유"},{"type":"실기/특기","suitability":"⭐","reason":"이유"}],"recommendedApps":[{"card":1,"university":"대학명","major":"학과명","type":"전형","note":"도전권"},{"card":2,"university":"대학명","major":"학과명","type":"전형","note":"도전권"},{"card":3,"university":"대학명","major":"학과명","type":"전형","note":"적정권"},{"card":4,"university":"대학명","major":"학과명","type":"전형","note":"적정권"},{"card":5,"university":"대학명","major":"학과명","type":"전형","note":"안정권"},{"card":6,"university":"대학명","major":"학과명","type":"전형","note":"안정권"}],"jungSiStrategy":"정시전략 2-3문장"}}`;
 
-      const user = `[학생 프로필]\n${profileStr}\n\n위 학생의 3개월 입시 로드맵 JSON을 출력하라. JSON만 출력.`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[학생 프로필]\n${profileStr}${ctx}\n\n위 학생의 3개월 입시 로드맵 JSON을 출력하라. JSON만 출력.`;
 
       const raw = await cerebrasChat({
         messages: [

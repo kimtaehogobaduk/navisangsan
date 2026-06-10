@@ -119,7 +119,7 @@ function Coach() {
                   : "border border-border bg-surface text-foreground"
               }`}
             >
-              {m.role === "assistant" ? <Markdown>{m.content}</Markdown> : m.content}
+              {m.role === "assistant" ? <Markdown storageKey={`coach-${i}`}>{m.content}</Markdown> : m.content}
             </div>
           </div>
         ))}

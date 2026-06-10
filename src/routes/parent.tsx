@@ -251,7 +251,7 @@ function ParentPage() {
 
           {report && !loading && (
             <article className="mt-4 rounded-2xl border border-border bg-surface p-5">
-              <Markdown>{report}</Markdown>
+              <Markdown storageKey="parent">{report}</Markdown>
             </article>
           )}
         </section>

@@ -100,7 +100,7 @@ function JeonhyeongPage() {
 
       {result && (
         <article className="mt-6 rounded-2xl border border-border bg-surface p-5">
-          <Markdown>{result}</Markdown>
+          <Markdown storageKey="jeonhyeong">{result}</Markdown>
         </article>
       )}
     </AppShell>

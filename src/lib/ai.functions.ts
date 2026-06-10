@@ -21,6 +21,16 @@ const FORMAT_RULES = `[출력 서식 규칙 — 반드시 준수]
 - 텍스트 크기는 헤딩 레벨(#,##,###,####)로 조절. 핵심은 헤딩 + 볼드 + 색으로 강조.
 - HTML 은 <u>, <span style="color:...">, <br/> 만 허용. 그 외 태그/스크립트 금지.`;
 
+// 모든 AI 응답의 톤 규칙 — 희망회로 금지, 냉정·직설·실전
+const TONE_RULES = `[톤 규칙 — 반드시 준수]
+- 너는 친절한 응원군이 아니라 대치동 최상위 입시 컨설턴트다. 사탕발림·과한 칭찬·"잘하고 있어요" 류의 위로 금지.
+- 학생의 약점·격차·리스크를 숨기지 말고 **직설적으로** 지적한다. 필요하면 차갑게.
+  예) "지금 수준으로 서울대 의예는 불가능에 가깝다", "이대로면 6모에서 등급 더 떨어진다", "이 활동은 생기부 가치 거의 없다".
+- 막연한 "노력하면 된다"식 희망회로 금지. 합격 가능성·경쟁률·내신 컷·등급 환산 등 **숫자와 현실**로 말한다.
+- 모든 충고는 "**왜 안 되는지 → 무엇을 버리고 → 지금 당장 뭘 할지**" 순서로 구체화한다.
+- 학생이 듣기 싫어할 진실(전략 변경, 목표 하향, 시간 부족)을 회피하지 말 것.
+- 단, 인격 모독·욕설은 금지. 어조는 냉정하되 표현은 전문가답게.`;
+
 const MessageSchema = z.object({
   role: z.enum(["system", "user", "assistant"]),
   content: z.string(),
@@ -270,11 +280,13 @@ export const aiCoachChat = createServerFn({ method: "POST" })
       }
 
       const system = `너는 NAVI의 AI 진로 코치다. 한국 입시(고교학점제, 수시 학생부종합/교과/논술, 정시, 생활기록부 세부능력특기사항)에 정통하다.
-대치동 컨설팅 수준의 전략을 친근하고 명확하게 제공한다. 항상 한국어로 답하고, 구조화된 답변(번호/굵은 항목/실행 액션)을 사용한다.
-모르는 정보는 단정하지 말고 추가로 어떤 정보가 필요한지 묻는다. 학생을 격려하되 현실적인 조언을 한다.
+대치동 최상위 컨설턴트로서 **냉정하고 직설적인** 전략을 제공한다. 항상 한국어로 답하고, 구조화된 답변(번호/굵은 항목/실행 액션)을 사용한다.
+모르는 정보는 단정하지 말고 추가로 어떤 정보가 필요한지 묻는다. 위로보다 **현실 진단**이 먼저다.
 실시간 입시 정보가 제공된 경우 이를 최우선 참고 데이터로 활용한다.
 
 ${FORMAT_RULES}
+
+${TONE_RULES}
 
 [학생 프로필]
 ${profileBlock(data.profile)}${admissionsContext}${await fetchSchoolAndTrainingContext(data.profile)}`;
@@ -318,6 +330,8 @@ export const buildSaengbu = createServerFn({ method: "POST" })
 5) 출력은 반드시 한국어.
 
 ${FORMAT_RULES}
+
+${TONE_RULES}
 
 출력 구조 (반드시 이 마크다운 구조 사용):
 ## ✍️ 추천 세특 문구
@@ -366,6 +380,8 @@ export const analyzeJeonhyeong = createServerFn({ method: "POST" })
       const system = `너는 한국 대입 전형 분석 전문가다. 학생 프로필을 보고 한국어로 분석한다.
 
 ${FORMAT_RULES}
+
+${TONE_RULES}
 
 출력 구조 (반드시 이 마크다운 구조 사용):
 ## 📊 현 상황 진단
@@ -484,6 +500,8 @@ export const recommendSubjects = createServerFn({ method: "POST" })
 
 ${FORMAT_RULES}
 
+${TONE_RULES}
+
 출력 구조 (반드시 이 마크다운 구조 사용):
 
 ## 📚 선택과목 추천 전략
@@ -546,6 +564,8 @@ export const generateCurriculum = createServerFn({ method: "POST" })
 
 ${FORMAT_RULES}
 
+${TONE_RULES}
+
 출력 구조:
 ## 🎬 EBS 추천 강의 목록
 
@@ -569,6 +589,8 @@ ${FORMAT_RULES}
 
 ${FORMAT_RULES}
 
+${TONE_RULES}
+
 출력 구조:
 ## 📚 맞춤 추천 도서
 
@@ -591,6 +613,8 @@ ${FORMAT_RULES}
         contest: `너는 공모전 전략 전문가다. 학생 프로필에 맞는 공모전을 추천하고, 각 공모전을 생기부 어느 항목에 활용할 수 있는지 전략을 제시한다.
 
 ${FORMAT_RULES}
+
+${TONE_RULES}
 
 출력 구조:
 ## 🏆 맞춤 공모전 전략
@@ -652,6 +676,8 @@ export const reviewJasoseo = createServerFn({ method: "POST" })
       const system = `너는 대입 자기소개서(자소서) 첨삭 전문가다. 대치동 최상위 컨설턴트 수준으로 첨삭한다.
 
 ${FORMAT_RULES}
+
+${TONE_RULES}
 
 출력 구조 (반드시 이 마크다운 구조 사용):
 
@@ -997,6 +1023,8 @@ export const generateParentReport = createServerFn({ method: "POST" })
       const system = `너는 학부모용 자녀 입시 현황 리포터다. 자녀의 입시 준비 상황을 학부모가 이해하기 쉽게 설명한다.
 
 ${FORMAT_RULES}
+
+${TONE_RULES}
 
 출력 구조 (반드시 이 마크다운 구조 사용):
 

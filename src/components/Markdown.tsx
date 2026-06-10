@@ -1,11 +1,14 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type Props = {
   children: string;
   className?: string;
+  /** 체크박스 상태를 영구 저장할 localStorage 키. 지정 시 사용자가 체크할 수 있음. */
+  storageKey?: string;
 };
 
 /**
@@ -13,7 +16,38 @@ type Props = {
  * 지원: 헤딩(#~####), 볼드(**), 이탤릭(*), 밑줄(<u>), 색(<span style="color:...">),
  * 인라인/블록 코드, 인용, 리스트, 체크박스, 표, 구분선, 별표 강조 등.
  */
-export function Markdown({ children, className }: Props) {
+export function Markdown({ children, className, storageKey }: Props) {
+  const [checked, setChecked] = useState<Set<number>>(() => {
+    if (typeof window === "undefined" || !storageKey) return new Set();
+    try {
+      const raw = localStorage.getItem(`navi.check.${storageKey}`);
+      return raw ? new Set(JSON.parse(raw) as number[]) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !storageKey) return;
+    try {
+      localStorage.setItem(
+        `navi.check.${storageKey}`,
+        JSON.stringify(Array.from(checked)),
+      );
+    } catch {
+      // ignore quota errors
+    }
+  }, [checked, storageKey]);
+
+  const toggle = useCallback((id: number) => {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   return (
     <div
       className={cn(
@@ -85,16 +119,19 @@ export function Markdown({ children, className }: Props) {
           td: ({ node, ...p }) => (
             <td className="border-b border-border/50 px-3 py-2 align-top" {...p} />
           ),
-          input: ({ node, ...p }) =>
-            p.type === "checkbox" ? (
+          input: ({ node, ...p }) => {
+            if (p.type !== "checkbox") return <input {...p} />;
+            const offset = node?.position?.start?.offset ?? -1;
+            const isChecked = offset >= 0 ? checked.has(offset) : !!p.checked;
+            return (
               <input
-                {...p}
-                disabled
-                className="mr-1.5 h-3.5 w-3.5 translate-y-0.5 rounded border-border accent-brand"
+                type="checkbox"
+                checked={isChecked}
+                onChange={() => offset >= 0 && toggle(offset)}
+                className="mr-1.5 h-3.5 w-3.5 translate-y-0.5 cursor-pointer rounded border-border accent-brand"
               />
-            ) : (
-              <input {...p} />
-            ),
+            );
+          },
         }}
       >
         {children}

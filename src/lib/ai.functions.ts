@@ -928,24 +928,26 @@ export const generateEssayInterviewQuestions = createServerFn({ method: "POST" }
     z.object({
       essay: z.string().min(10),
       profile: ProfileSchema.optional(),
+      count: z.number().int().min(3).max(30).default(5),
     }),
   )
   .handler(async ({ data }) => {
     try {
       const { cerebrasChat } = await import("./cerebras.server");
+      const count = data.count ?? 5;
 
-      const system = `너는 대학 입시 면접관이다. 학생의 자기소개서를 읽고 실제 면접에서 사용할 질문 5개를 생성한다.
+      const system = `너는 대학 입시 면접관이다. 학생의 자기소개서를 읽고 실제 면접에서 사용할 질문 ${count}개를 생성한다.
 
 [규칙]
 - 자기소개서에서 구체적으로 언급된 활동, 경험, 가치관을 파고드는 심층 질문
 - 단순 확인 질문이 아닌, 추가 설명을 유도하는 개방형 질문
-- **목표 학과**와 직결되는 전공적합성 질문 최소 2개 포함
+- **목표 학과**와 직결되는 전공적합성 질문 최소 ${Math.max(2, Math.floor(count * 0.4))}개 포함
 - **학교 유형**(영재고/과학고/외고/자사고/일반고 등)에 맞춘 톤·난이도 조정
   · 영재고·과학고: 연구 경험, 심화 탐구의 학문적 깊이를 파고드는 질문
   · 외고·국제고: 어문·국제 감각, 인문 사회 통찰력을 묻는 질문
   · 자사고·일반고: 동기·성장 서사, 학교 환경 속 주체성에 초점
-- 압박 질문 1개 포함 (논리적 약점을 파고드는)
-- JSON 배열만 출력: ["질문1", "질문2", "질문3", "질문4", "질문5"]
+- 압박 질문 ${Math.max(1, Math.floor(count * 0.2))}개 포함 (논리적 약점을 파고드는)
+- JSON 배열만 출력: ["질문1", ..., "질문${count}"]. 정확히 ${count}개. 다른 텍스트 절대 금지.
 
 [학생 프로필]
 ${profileBlock(data.profile)}`;
@@ -953,10 +955,10 @@ ${profileBlock(data.profile)}`;
       const raw = await cerebrasChat({
         messages: [
           { role: "system", content: system },
-          { role: "user", content: `[자기소개서]\n${data.essay.slice(0, 2000)}` },
+          { role: "user", content: `[자기소개서]\n${data.essay.slice(0, 2000)}\n\n위 자소서를 바탕으로 면접 질문 ${count}개를 JSON 배열로 출력하라.` },
         ],
         temperature: 0.5,
-        max_tokens: 800,
+        max_tokens: Math.min(300 * count, 6000),
       });
 
       // JSON 파싱
@@ -970,7 +972,7 @@ ${profileBlock(data.profile)}`;
 
       // 줄바꿈 fallback
       const lines = raw.split("\n").map(l => l.replace(/^[\d\.\-\*\s]+/, "").trim()).filter(l => l.length > 10);
-      return { questions: lines.slice(0, 5) };
+      return { questions: lines.slice(0, count) };
     } catch (error) {
       normalizeAiError(error);
     }
@@ -978,11 +980,16 @@ ${profileBlock(data.profile)}`;
 
 // ============ 공통 면접 질문 생성 (학교·학과 맞춤) ============
 export const generateCommonInterviewQuestions = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ profile: ProfileSchema.optional() }))
+  .inputValidator(z.object({
+    profile: ProfileSchema.optional(),
+    count: z.number().int().min(3).max(30).default(20),
+  }))
   .handler(async ({ data }) => {
     try {
       const { cerebrasChat } = await import("./cerebras.server");
-      const system = `너는 대학 입시 면접관이다. 학생 프로필을 바탕으로 실제 면접에서 사용할 **공통 면접 질문 20개**를 생성한다.
+      const count = data.count ?? 20;
+      const majorCount = Math.max(3, Math.floor(count * 0.35));
+      const system = `너는 대학 입시 면접관이다. 학생 프로필을 바탕으로 실제 면접에서 사용할 **공통 면접 질문 ${count}개**를 생성한다.
 
 [규칙]
 - 인성·일반·상황·동기·가치관 영역을 골고루 포함
@@ -992,9 +999,9 @@ export const generateCommonInterviewQuestions = createServerFn({ method: "POST" 
   · 전국형 자사고: 학교 프로그램에서의 주체적 성취, 비교과 깊이
   · 일반고: 환경적 제약 속 자기주도성, 성장 서사, 학교 활동 활용도
   · 특성화·마이스터고: 진로·직무 적합성, 실무 경험
-- 질문 중 **최소 7개**는 학생의 **목표 학과**(전공적합성·진로 비전)에 직결되도록 구성
+- 질문 중 **최소 ${majorCount}개**는 학생의 **목표 학과**(전공적합성·진로 비전)에 직결되도록 구성
 - 단순 확인이 아닌 개방형, 한 문장으로 명확하게
-- JSON 배열만 출력: ["질문1", ..., "질문20"]. 다른 텍스트 절대 금지.
+- JSON 배열만 출력: ["질문1", ..., "질문${count}"]. 정확히 ${count}개. 다른 텍스트 절대 금지.
 
 [학생 프로필]
 ${profileBlock(data.profile)}`;
@@ -1002,10 +1009,10 @@ ${profileBlock(data.profile)}`;
       const raw = await cerebrasChat({
         messages: [
           { role: "system", content: system },
-          { role: "user", content: "위 학생에게 적합한 공통 면접 질문 20개를 JSON 배열로 출력하라." },
+          { role: "user", content: `위 학생에게 적합한 공통 면접 질문 ${count}개를 JSON 배열로 출력하라.` },
         ],
         temperature: 0.6,
-        max_tokens: 2000,
+        max_tokens: Math.min(200 * count, 8000),
       });
 
       const match = raw.match(/\[[\s\S]*\]/);
@@ -1016,7 +1023,7 @@ ${profileBlock(data.profile)}`;
         } catch { /* */ }
       }
       const lines = raw.split("\n").map(l => l.replace(/^[\d\.\-\*\s"']+/, "").replace(/["']\s*,?\s*$/, "").trim()).filter(l => l.length > 8);
-      return { questions: lines.slice(0, 20) };
+      return { questions: lines.slice(0, count) };
     } catch (error) {
       normalizeAiError(error);
     }

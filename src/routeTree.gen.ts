@@ -14,6 +14,7 @@ import { Route as SaengbuRouteImport } from './routes/saengbu'
 import { Route as ParentRouteImport } from './routes/parent'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as NewsRouteImport } from './routes/news'
+import { Route as MypageRouteImport } from './routes/mypage'
 import { Route as MoreRouteImport } from './routes/more'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as JeonhyeongRouteImport } from './routes/jeonhyeong'
@@ -50,6 +51,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const NewsRoute = NewsRouteImport.update({
   id: '/news',
   path: '/news',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MypageRoute = MypageRouteImport.update({
+  id: '/mypage',
+  path: '/mypage',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MoreRoute = MoreRouteImport.update({
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/jeonhyeong': typeof JeonhyeongRoute
   '/login': typeof LoginRoute
   '/more': typeof MoreRoute
+  '/mypage': typeof MypageRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
   '/parent': typeof ParentRoute
@@ -145,6 +152,7 @@ export interface FileRoutesByTo {
   '/jeonhyeong': typeof JeonhyeongRoute
   '/login': typeof LoginRoute
   '/more': typeof MoreRoute
+  '/mypage': typeof MypageRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
   '/parent': typeof ParentRoute
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/jeonhyeong': typeof JeonhyeongRoute
   '/login': typeof LoginRoute
   '/more': typeof MoreRoute
+  '/mypage': typeof MypageRoute
   '/news': typeof NewsRoute
   '/onboarding': typeof OnboardingRoute
   '/parent': typeof ParentRoute
@@ -186,6 +195,7 @@ export interface FileRouteTypes {
     | '/jeonhyeong'
     | '/login'
     | '/more'
+    | '/mypage'
     | '/news'
     | '/onboarding'
     | '/parent'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/jeonhyeong'
     | '/login'
     | '/more'
+    | '/mypage'
     | '/news'
     | '/onboarding'
     | '/parent'
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/jeonhyeong'
     | '/login'
     | '/more'
+    | '/mypage'
     | '/news'
     | '/onboarding'
     | '/parent'
@@ -244,6 +256,7 @@ export interface RootRouteChildren {
   JeonhyeongRoute: typeof JeonhyeongRoute
   LoginRoute: typeof LoginRoute
   MoreRoute: typeof MoreRoute
+  MypageRoute: typeof MypageRoute
   NewsRoute: typeof NewsRoute
   OnboardingRoute: typeof OnboardingRoute
   ParentRoute: typeof ParentRoute
@@ -288,6 +301,13 @@ declare module '@tanstack/react-router' {
       path: '/news'
       fullPath: '/news'
       preLoaderRoute: typeof NewsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mypage': {
+      id: '/mypage'
+      path: '/mypage'
+      fullPath: '/mypage'
+      preLoaderRoute: typeof MypageRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/more': {
@@ -388,6 +408,7 @@ const rootRouteChildren: RootRouteChildren = {
   JeonhyeongRoute: JeonhyeongRoute,
   LoginRoute: LoginRoute,
   MoreRoute: MoreRoute,
+  MypageRoute: MypageRoute,
   NewsRoute: NewsRoute,
   OnboardingRoute: OnboardingRoute,
   ParentRoute: ParentRoute,

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
-import { Compass, MessageCircle, FileText, Target, Home, Newspaper, LogIn, ShieldCheck, LogOut, LayoutGrid } from "lucide-react";
+import { Compass, MessageCircle, FileText, Target, Home, LogIn, ShieldCheck, LogOut, LayoutGrid, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const nav = [
@@ -42,6 +42,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     setUserEmail(null);
   }
 
+  // 이니셜 아바타
+  const initials = userEmail ? userEmail.slice(0, 2).toUpperCase() : null;
+
   return (
     <div className="min-h-screen pb-24">
       <header className="sticky top-0 z-30 glass">
@@ -65,9 +68,15 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
             {userEmail ? (
               <div className="flex items-center gap-2">
-                <span className="hidden text-[11px] text-muted-foreground md:block">
-                  {userEmail.split("@")[0]}
-                </span>
+                <Link
+                  to="/mypage"
+                  className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground transition hover:text-foreground hover:border-brand/40"
+                >
+                  <div className="grid h-4 w-4 place-items-center rounded-full bg-gradient-brand text-[8px] font-bold text-brand-foreground">
+                    {initials}
+                  </div>
+                  <span className="hidden sm:inline">{userEmail.split("@")[0]}</span>
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground transition hover:text-foreground"
@@ -120,6 +129,16 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
+          {/* 마이페이지 탭 */}
+          <Link
+            to="/mypage"
+            className={`flex flex-1 flex-col items-center gap-1 py-3 text-[11px] transition ${
+              pathname === "/mypage" ? "text-brand" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <User className={`h-5 w-5 ${pathname === "/mypage" ? "drop-shadow-[0_0_8px_var(--brand)]" : ""}`} />
+            <span className="font-medium">마이페이지</span>
+          </Link>
         </div>
       </nav>
     </div>

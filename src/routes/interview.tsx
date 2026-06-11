@@ -60,6 +60,13 @@ function InterviewPage() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [mode, setMode] = useState<Mode>("common");
 
+  // 질문 개수 설정
+  const [questionCount, setQuestionCount] = useState<number>(() => {
+    if (typeof window === "undefined") return 10;
+    return parseInt(localStorage.getItem("navi.interview.questionCount") ?? "10");
+  });
+  const [showCountPicker, setShowCountPicker] = useState(false);
+
   // 공통 면접 상태 (질문은 학교·학과 맞춤 AI 생성)
   const [commonQuestions, setCommonQuestions] = useState<string[]>(FALLBACK_commonQuestions);
   const [regeneratingCommon, setRegeneratingCommon] = useState(false);
@@ -95,17 +102,18 @@ function InterviewPage() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const loadCommonQuestions = async (p: StudentProfile, force = false) => {
-    const cacheKey = `navi.interview.common.v2.${p.school}.${p.targetMajor}`;
+  const loadCommonQuestions = async (p: StudentProfile, force = false, count?: number) => {
+    const c = count ?? questionCount;
+    const cacheKey = `navi.interview.common.v3.${p.school}.${p.targetMajor}.${c}`;
     if (!force) {
       const cached = typeof window !== "undefined" ? localStorage.getItem(cacheKey) : null;
       if (cached) { try { setCommonQuestions(JSON.parse(cached)); return; } catch { /* */ } }
     }
     setRegeneratingCommon(true);
     try {
-      const res = await genCommon({ data: { profile: p } });
+      const res = await genCommon({ data: { profile: p, count: c } });
       const qs = res?.questions ?? [];
-      if (qs.length >= 5) {
+      if (qs.length >= 3) {
         setCommonQuestions(qs);
         setQIdx(0);
         if (typeof window !== "undefined") localStorage.setItem(cacheKey, JSON.stringify(qs));
@@ -210,7 +218,7 @@ function InterviewPage() {
     setEssayFeedbackList([]);
     setEssayQIdx(0);
     try {
-      const res = await genQuestions({ data: { essay, profile } });
+      const res = await genQuestions({ data: { essay, profile, count: questionCount } });
       setEssayQuestions(res!.questions ?? []);
     } catch (e) {
       alert(e instanceof Error ? e.message : "질문 생성 오류");
@@ -285,6 +293,42 @@ function InterviewPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* 질문 개수 선택 */}
+          <div className="relative">
+            <button
+              onClick={() => setShowCountPicker(v => !v)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-brand/30 hover:text-foreground"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {questionCount}개
+            </button>
+            {showCountPicker && (
+              <div className="absolute right-0 top-9 z-50 w-56 rounded-2xl border border-border bg-background p-3 shadow-xl">
+                <p className="text-xs font-semibold mb-2 text-muted-foreground">질문 개수 선택</p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[5, 10, 15, 20, 25, 30].map(n => (
+                    <button
+                      key={n}
+                      onClick={() => {
+                        setQuestionCount(n);
+                        localStorage.setItem("navi.interview.questionCount", String(n));
+                        setShowCountPicker(false);
+                        if (profile) loadCommonQuestions(profile, true, n);
+                      }}
+                      className={`rounded-lg py-1.5 text-xs font-semibold transition ${
+                        questionCount === n
+                          ? "bg-brand text-brand-foreground shadow-glow"
+                          : "border border-border hover:border-brand/40 text-muted-foreground"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2">변경 시 질문을 새로 생성합니다</p>
+              </div>
+            )}
+          </div>
           <button
             onClick={() => setCameraOn((v) => !v)}
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
@@ -445,7 +489,7 @@ function InterviewPage() {
                   <textarea
                     value={essay}
                     onChange={(e) => setEssay(e.target.value)}
-                    placeholder="자기소개서 내용을 붙여넣거나 직접 작성하세요. AI가 이 내용을 바탕으로 맞춤 면접 질문 5개를 생성합니다."
+                    placeholder={`자기소개서 내용을 붙여넣거나 직접 작성하세요. AI가 이 내용을 바탕으로 맞춤 면접 질문 ${questionCount}개를 생성합니다.`}
                     rows={12}
                     className="w-full resize-none rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none transition focus:border-brand"
                   />

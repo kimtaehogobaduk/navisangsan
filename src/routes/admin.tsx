@@ -35,7 +35,8 @@ import {
   ingestPdfFn,
   ingestImageFn,
 } from "@/lib/training-jobs.functions";
-import { listAllUsersFn, getUserActivityDetailFn } from "@/lib/admin.functions";
+import { listAllUsersFn, getUserActivityDetailFn, triggerAutoCollectFn, triggerAdmissionsRefreshFn } from "@/lib/admin.functions";
+import { ingestTextFileFn, clearFailedJobsFn } from "@/lib/training-jobs.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "관리자 패널 — NAVI" }] }),
@@ -44,8 +45,8 @@ export const Route = createFileRoute("/admin")({
 
 const ADMIN_PASSCODE = "sangsanadmin";
 
-type AdminTab = "training" | "youtube" | "members" | "stats";
-type InputMode = "text" | "url" | "pdf" | "image";
+type AdminTab = "training" | "youtube" | "members" | "stats" | "autocollect";
+type InputMode = "text" | "url" | "pdf" | "image" | "file";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -74,6 +75,12 @@ function AdminPage() {
   const [imgDesc, setImgDesc] = useState("");
   const [imgLoading, setImgLoading] = useState(false);
   const [imgMsg, setImgMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  // Generic file ingestion state
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [fileItem, setFileItem] = useState<File | null>(null);
+  const [fileLoading, setFileLoading] = useState(false);
+  const [fileMsg, setFileMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   const [ingestCategory, setIngestCategory] = useState(TRAINING_CATEGORIES[0]);
 
@@ -207,6 +214,28 @@ function AdminPage() {
     } finally { setImgLoading(false); }
   }
 
+  async function handleIngestFile() {
+    if (!fileItem) return;
+    setFileLoading(true); setFileMsg(null);
+    try {
+      const text = await fileItem.text();
+      const r = await ingestTextFileFn({
+        data: {
+          content: text,
+          filename: fileItem.name,
+          category: ingestCategory,
+          fileType: fileItem.type || (fileItem.name.split(".").pop() ?? "text"),
+        },
+      });
+      setFileMsg({ type: "ok", text: `저장 완료: "${r.title}"` });
+      setFileItem(null);
+      if (fileRef.current) fileRef.current.value = "";
+      await refreshDocs();
+    } catch (e) {
+      setFileMsg({ type: "err", text: e instanceof Error ? e.message : "파일 처리 실패" });
+    } finally { setFileLoading(false); }
+  }
+
   const groupedDocs = TRAINING_CATEGORIES.reduce<Record<string, TrainingDoc[]>>((acc, cat) => {
     acc[cat] = docs.filter((d) => d.category === cat);
     return acc;
@@ -217,6 +246,7 @@ function AdminPage() {
     { id: "url", label: "링크", icon: <Link2 className="h-3.5 w-3.5" /> },
     { id: "pdf", label: "PDF", icon: <FileText className="h-3.5 w-3.5" /> },
     { id: "image", label: "이미지", icon: <Image className="h-3.5 w-3.5" /> },
+    { id: "file", label: "기타 파일", icon: <BookOpen className="h-3.5 w-3.5" /> },
   ];
 
   return (
@@ -253,7 +283,7 @@ function AdminPage() {
         </div>
 
         <div className="mb-6 flex gap-2 flex-wrap">
-          {(["training", "youtube", "members", "stats"] as AdminTab[]).map((t) => (
+          {(["training", "youtube", "autocollect", "members", "stats"] as AdminTab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -266,11 +296,13 @@ function AdminPage() {
               {t === "training" ? (
                 <><Brain className="h-4 w-4" />AI 학습 자료</>
               ) : t === "youtube" ? (
-                <><BookOpen className="h-4 w-4" />유튜브 일괄 학습</>
+                <><BookOpen className="h-4 w-4" />유튜브 일괄</>
+              ) : t === "autocollect" ? (
+                <><RefreshCw className="h-4 w-4" />자동 수집</>
               ) : t === "members" ? (
                 <><Users className="h-4 w-4" />회원 관리</>
               ) : (
-                <><Users className="h-4 w-4" />서비스 현황</>
+                <><ChevronRight className="h-4 w-4" />서비스 현황</>
               )}
             </button>
           ))}
@@ -278,6 +310,7 @@ function AdminPage() {
 
         {tab === "youtube" && <YoutubeTab />}
         {tab === "members" && <MembersTab />}
+        {tab === "autocollect" && <AutoCollectTab />}
 
         {tab === "training" && (
           <div className="space-y-6">
@@ -493,7 +526,7 @@ function AdminPage() {
                                 <>
                                   <Image className="h-8 w-8 text-muted-foreground/50" />
                                   <span className="text-sm text-muted-foreground">클릭하여 이미지 선택</span>
-                                  <span className="text-xs text-muted-foreground/60">JPG, PNG, WEBP 지원</span>
+                                  <span className="text-xs text-muted-foreground/60">JPG, PNG, WEBP, GIF 지원 · 크기 제한 없음</span>
                                 </>
                               )}
                             </div>
@@ -537,6 +570,54 @@ function AdminPage() {
                             >
                               {imgLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Image className="h-4 w-4" />}
                               {imgLoading ? "저장 중…" : "분석·저장"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 기타 파일 업로드 (txt, md, csv, docx, hwp, html, json 등 모든 텍스트 형식) */}
+                      {inputMode === "file" && (
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              파일 선택 <span className="text-[10px]">(모든 텍스트 형식 · 크기 제한 없음)</span>
+                            </label>
+                            <div
+                              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background p-6 transition hover:border-amber-400/50"
+                              onClick={() => fileRef.current?.click()}
+                            >
+                              <BookOpen className="h-8 w-8 text-muted-foreground/50" />
+                              {fileItem ? (
+                                <span className="text-sm font-medium text-amber-400">{fileItem.name} ({(fileItem.size / 1024).toFixed(1)} KB)</span>
+                              ) : (
+                                <>
+                                  <span className="text-sm text-muted-foreground">클릭하여 파일 선택</span>
+                                  <span className="text-xs text-muted-foreground/60">txt, md, csv, html, json, docx, hwp 등</span>
+                                </>
+                              )}
+                            </div>
+                            <input
+                              ref={fileRef}
+                              type="file"
+                              accept=".txt,.md,.csv,.html,.htm,.json,.xml,.yaml,.yml,.docx,.doc,.hwp,.rtf,.log,.tsv"
+                              className="hidden"
+                              onChange={(e) => { const f = e.target.files?.[0]; if (f) setFileItem(f); }}
+                            />
+                          </div>
+                          {fileMsg && (
+                            <div className={`rounded-xl px-3 py-2 text-xs ${fileMsg.type === "ok" ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive-foreground"}`}>
+                              {fileMsg.text}
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <p className="text-[11px] text-muted-foreground">AI가 파일 내용을 자동으로 분석해 입시 학습 자료로 정리합니다.</p>
+                            <button
+                              onClick={handleIngestFile}
+                              disabled={fileLoading || !fileItem}
+                              className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400 disabled:opacity-50 whitespace-nowrap"
+                            >
+                              {fileLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+                              {fileLoading ? "분석 중…" : "분석·저장"}
                             </button>
                           </div>
                         </div>
@@ -881,8 +962,7 @@ function MembersTab() {
   const filtered = q ? users.filter((u) => u.email.toLowerCase().includes(q.toLowerCase())) : users;
   const fmtDate = (s: string | null) => s ? new Date(s).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : "—";
 
-  return (
-    <div className="space-y-4">
+  return (<div className="space-y-4">
       <div className="rounded-2xl border border-border bg-surface p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -983,6 +1063,147 @@ function MembersTab() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function AutoCollectTab() {
+  const [collectMsg, setCollectMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [admissionsMsg, setAdmissionsMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [collectLoading, setCollectLoading] = useState(false);
+  const [admissionsLoading, setAdmissionsLoading] = useState(false);
+
+  async function handleAutoCollect() {
+    setCollectLoading(true); setCollectMsg(null);
+    try {
+      const r = await triggerAutoCollectFn({ data: { passcode: "sangsanadmin" } });
+      setCollectMsg({ type: r.ok ? "ok" : "err", text: r.message });
+    } catch (e) {
+      setCollectMsg({ type: "err", text: e instanceof Error ? e.message : "실패" });
+    } finally { setCollectLoading(false); }
+  }
+
+  async function handleAdmissionsRefresh() {
+    setAdmissionsLoading(true); setAdmissionsMsg(null);
+    try {
+      const r = await triggerAdmissionsRefreshFn({ data: { passcode: "sangsanadmin" } });
+      setAdmissionsMsg({ type: "ok", text: r.message });
+    } catch (e) {
+      setAdmissionsMsg({ type: "err", text: e instanceof Error ? e.message : "실패" });
+    } finally { setAdmissionsLoading(false); }
+  }
+
+  const COLLECTION_TOPICS = [
+    { id: "suneung-2026", label: "2026학년도 수능 출제 경향", category: "수능" },
+    { id: "snu-2026", label: "서울대 2026 입시 정보", category: "대학별 입시" },
+    { id: "yonsei-korea-2026", label: "연대·고대 2026 입시", category: "대학별 입시" },
+    { id: "medical-2026", label: "의대 2026 합격선", category: "의대약대" },
+    { id: "goeyo-highschool", label: "고교학점제 5등급제 대입", category: "정책변경" },
+    { id: "essay-trend", label: "자기소개서 트렌드", category: "자기소개서" },
+    { id: "saengbu-trend", label: "생기부 세특 최신 트렌드", category: "생기부" },
+    { id: "nsu-strategy", label: "N수생 정시 전략", category: "수능" },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-border bg-surface p-5">
+        <h2 className="flex items-center gap-2 text-base font-bold mb-1">
+          <RefreshCw className="h-5 w-5 text-amber-400" />
+          자동 입시 정보 수집 시스템
+        </h2>
+        <p className="text-xs text-muted-foreground mb-4">
+          Groq + Cerebras AI가 자동으로 최신 입시 정보를 수집·분석해 학습 자료로 저장합니다.
+          앱 서버가 실행 중일 때 6시간마다 자동으로 갱신됩니다.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {/* Groq 자동 수집 */}
+          <div className="rounded-xl border border-border p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold">Groq 웹 검색 수집</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                DuckDuckGo + Groq llama-3.1-8b로 실시간 입시 정보 검색 후 Cerebras로 깊이 정리
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {COLLECTION_TOPICS.slice(0, 4).map(t => (
+                <div key={t.id} className="flex items-center gap-2 text-xs">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                  <span className="text-foreground">{t.label}</span>
+                  <span className="text-muted-foreground ml-auto">{t.category}</span>
+                </div>
+              ))}
+              <div className="text-[11px] text-muted-foreground">+ {COLLECTION_TOPICS.length - 4}개 추가 주제</div>
+            </div>
+            {collectMsg && (
+              <div className={`rounded-lg px-3 py-2 text-xs ${collectMsg.type === "ok" ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive-foreground"}`}>
+                {collectMsg.text}
+              </div>
+            )}
+            <button
+              onClick={handleAutoCollect}
+              disabled={collectLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-400 disabled:opacity-50"
+            >
+              {collectLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {collectLoading ? "수집 중 (백그라운드)…" : "지금 수집 시작"}
+            </button>
+          </div>
+
+          {/* 입시 정보 DB 갱신 */}
+          <div className="rounded-xl border border-border p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold">입시 정보 DB 갱신</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Cerebras AI가 주요 대학·전형 정보를 분석해 실시간 입시 DB에 저장합니다 (AI 코치에 즉시 반영)
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {["최상위 대학 입시", "의대·약대 전형", "수능 분석", "고2이하 정책변경"].map(t => (
+                <div key={t} className="flex items-center gap-2 text-xs">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 flex-shrink-0" />
+                  <span className="text-foreground">{t}</span>
+                </div>
+              ))}
+            </div>
+            {admissionsMsg && (
+              <div className={`rounded-lg px-3 py-2 text-xs ${admissionsMsg.type === "ok" ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive-foreground"}`}>
+                {admissionsMsg.text}
+              </div>
+            )}
+            <button
+              onClick={handleAdmissionsRefresh}
+              disabled={admissionsLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400 disabled:opacity-50"
+            >
+              {admissionsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+              {admissionsLoading ? "갱신 중…" : "입시 DB 갱신"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-surface p-5">
+        <h3 className="text-sm font-bold mb-3">수집 스케줄</h3>
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center justify-between rounded-xl bg-background px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+              <span>Groq 자동 수집</span>
+            </div>
+            <span className="text-xs text-muted-foreground">6시간마다 자동</span>
+          </div>
+          <div className="flex items-center justify-between rounded-xl bg-background px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+              <span>입시 정보 DB</span>
+            </div>
+            <span className="text-xs text-muted-foreground">1분마다 자동</span>
+          </div>
+        </div>
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          * 자동 수집은 서버 시작 30초 후 첫 실행됩니다. 앱이 꺼지면 다음 시작 시 재개됩니다.
+        </p>
+      </div>
     </div>
   );
 }

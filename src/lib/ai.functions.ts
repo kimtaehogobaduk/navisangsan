@@ -468,15 +468,6 @@ ${training}
       const ctx = await fetchSchoolAndTrainingContext(data.profile);
       const user = `[학생 프로필]\n${profileStr}${ctx}\n\n위 학생의 3개월 입시 로드맵 JSON을 출력하라. JSON만 출력.`;
 
-      const raw = await cerebrasChat({
-        messages: [
-          { role: "system", content: SYSTEM },
-          { role: "user", content: user },
-        ],
-        temperature: 0.3,
-        max_tokens: 4500,
-      });
-
       function parseRoadmapJson(str: string): import("./roadmap").RoadmapData | null {
         try {
           const s = str.indexOf("{");
@@ -486,7 +477,20 @@ ${training}
         } catch { return null; }
       }
 
-      const parsed = parseRoadmapJson(raw);
+      // 로드맵 JSON은 매우 커서 토큰 한도를 넉넉히 잡고, 파싱 실패 시 1회 재시도
+      let parsed: import("./roadmap").RoadmapData | null = null;
+      for (let attempt = 0; attempt < 2 && !parsed?.months?.length; attempt++) {
+        const raw = await cerebrasChat({
+          messages: [
+            { role: "system", content: SYSTEM },
+            { role: "user", content: user },
+          ],
+          temperature: 0.3,
+          max_tokens: 20000,
+        });
+        parsed = parseRoadmapJson(raw);
+      }
+
       if (!parsed?.months?.length) {
         throw new Error("로드맵 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
       }

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ShieldCheck,
   Plus,
@@ -14,16 +14,26 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
+  Link2,
+  FileText,
+  Image,
+  Type,
+  Play,
+  RefreshCw,
 } from "lucide-react";
 import { TRAINING_CATEGORIES, type TrainingDoc } from "@/lib/training";
 import {
   queueYoutubeJobsFn,
+  processYoutubeJobsFn,
   listTrainingJobsFn,
   listTrainingDocsFn,
   saveTrainingDocFn,
   deleteTrainingDocFn,
   cancelTrainingJobFn,
   deleteTrainingJobFn,
+  ingestUrlFn,
+  ingestPdfFn,
+  ingestImageFn,
 } from "@/lib/training-jobs.functions";
 import { listAllUsersFn, getUserActivityDetailFn } from "@/lib/admin.functions";
 
@@ -35,6 +45,7 @@ export const Route = createFileRoute("/admin")({
 const ADMIN_PASSCODE = "sangsanadmin";
 
 type AdminTab = "training" | "youtube" | "members" | "stats";
+type InputMode = "text" | "url" | "pdf" | "image";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -43,6 +54,28 @@ function AdminPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ category: TRAINING_CATEGORIES[0], title: "", content: "" });
   const [showForm, setShowForm] = useState(false);
+  const [inputMode, setInputMode] = useState<InputMode>("text");
+
+  // URL ingestion state
+  const [urlInput, setUrlInput] = useState("");
+  const [urlLoading, setUrlLoading] = useState(false);
+  const [urlMsg, setUrlMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  // PDF ingestion state
+  const pdfRef = useRef<HTMLInputElement>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfMsg, setPdfMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  // Image ingestion state
+  const imgRef = useRef<HTMLInputElement>(null);
+  const [imgFile, setImgFile] = useState<File | null>(null);
+  const [imgPreview, setImgPreview] = useState<string | null>(null);
+  const [imgDesc, setImgDesc] = useState("");
+  const [imgLoading, setImgLoading] = useState(false);
+  const [imgMsg, setImgMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const [ingestCategory, setIngestCategory] = useState(TRAINING_CATEGORIES[0]);
 
   async function refreshDocs() {
     try {
@@ -77,12 +110,17 @@ function AdminPage() {
   function openAdd() {
     setEditingId(null);
     setForm({ category: TRAINING_CATEGORIES[0], title: "", content: "" });
+    setInputMode("text");
+    setUrlInput(""); setUrlMsg(null);
+    setPdfFile(null); setPdfMsg(null);
+    setImgFile(null); setImgPreview(null); setImgDesc(""); setImgMsg(null);
     setShowForm(true);
   }
 
   function openEdit(doc: TrainingDoc) {
     setEditingId(doc.id);
     setForm({ category: doc.category, title: doc.title, content: doc.content });
+    setInputMode("text");
     setShowForm(true);
   }
 
@@ -116,10 +154,70 @@ function AdminPage() {
     }
   }
 
+  async function handleIngestUrl() {
+    if (!urlInput.trim()) return;
+    setUrlLoading(true); setUrlMsg(null);
+    try {
+      const r = await ingestUrlFn({ data: { url: urlInput.trim(), category: ingestCategory } });
+      setUrlMsg({ type: "ok", text: `저장 완료: "${r.title}"` });
+      setUrlInput("");
+      await refreshDocs();
+    } catch (e) {
+      setUrlMsg({ type: "err", text: e instanceof Error ? e.message : "URL 처리 실패" });
+    } finally { setUrlLoading(false); }
+  }
+
+  async function handleIngestPdf() {
+    if (!pdfFile) return;
+    setPdfLoading(true); setPdfMsg(null);
+    try {
+      const buf = await pdfFile.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const r = await ingestPdfFn({ data: { base64, filename: pdfFile.name, category: ingestCategory } });
+      setPdfMsg({ type: "ok", text: `저장 완료: "${r.title}"` });
+      setPdfFile(null);
+      if (pdfRef.current) pdfRef.current.value = "";
+      await refreshDocs();
+    } catch (e) {
+      setPdfMsg({ type: "err", text: e instanceof Error ? e.message : "PDF 처리 실패" });
+    } finally { setPdfLoading(false); }
+  }
+
+  async function handleIngestImage() {
+    if (!imgFile) return;
+    setImgLoading(true); setImgMsg(null);
+    try {
+      const buf = await imgFile.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      const r = await ingestImageFn({
+        data: {
+          base64,
+          mimeType: imgFile.type,
+          filename: imgFile.name,
+          category: ingestCategory,
+          userDescription: imgDesc.trim() || undefined,
+        },
+      });
+      setImgMsg({ type: "ok", text: `저장 완료: "${r.title}"` });
+      setImgFile(null); setImgPreview(null); setImgDesc("");
+      if (imgRef.current) imgRef.current.value = "";
+      await refreshDocs();
+    } catch (e) {
+      setImgMsg({ type: "err", text: e instanceof Error ? e.message : "이미지 처리 실패" });
+    } finally { setImgLoading(false); }
+  }
+
   const groupedDocs = TRAINING_CATEGORIES.reduce<Record<string, TrainingDoc[]>>((acc, cat) => {
     acc[cat] = docs.filter((d) => d.category === cat);
     return acc;
   }, {});
+
+  const INPUT_MODES: { id: InputMode; label: string; icon: React.ReactNode }[] = [
+    { id: "text", label: "텍스트", icon: <Type className="h-3.5 w-3.5" /> },
+    { id: "url", label: "링크", icon: <Link2 className="h-3.5 w-3.5" /> },
+    { id: "pdf", label: "PDF", icon: <FileText className="h-3.5 w-3.5" /> },
+    { id: "image", label: "이미지", icon: <Image className="h-3.5 w-3.5" /> },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -166,25 +264,13 @@ function AdminPage() {
               }`}
             >
               {t === "training" ? (
-                <>
-                  <Brain className="h-4 w-4" />
-                  AI 학습 자료
-                </>
+                <><Brain className="h-4 w-4" />AI 학습 자료</>
               ) : t === "youtube" ? (
-                <>
-                  <BookOpen className="h-4 w-4" />
-                  유튜브 일괄 학습
-                </>
+                <><BookOpen className="h-4 w-4" />유튜브 일괄 학습</>
               ) : t === "members" ? (
-                <>
-                  <Users className="h-4 w-4" />
-                  회원 관리
-                </>
+                <><Users className="h-4 w-4" />회원 관리</>
               ) : (
-                <>
-                  <Users className="h-4 w-4" />
-                  서비스 현황
-                </>
+                <><Users className="h-4 w-4" />서비스 현황</>
               )}
             </button>
           ))}
@@ -203,7 +289,7 @@ function AdminPage() {
                     AI 학습 자료 관리
                   </h2>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    여기에 입력한 자료는 AI 코치와 로드맵 생성 시 참고 지식으로 활용됩니다.
+                    텍스트, 링크(뉴스/블로그), PDF, 이미지를 업로드하면 AI가 자동으로 분석·정리합니다.
                   </p>
                 </div>
                 <button
@@ -225,59 +311,238 @@ function AdminPage() {
                       <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
                     </button>
                   </div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">카테고리</label>
-                      <select
-                        value={form.category}
-                        onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400"
-                      >
-                        {TRAINING_CATEGORIES.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">제목</label>
-                      <input
-                        value={form.title}
-                        onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                        placeholder="예: 연세대 의예과 세특 키워드"
-                        className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400"
-                      />
-                    </div>
-                  </div>
+
+                  {/* 카테고리 (공통) */}
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      내용{" "}
-                      <span className="text-[10px]">(AI가 이 내용을 그대로 학습합니다)</span>
-                    </label>
-                    <textarea
-                      value={form.content}
-                      onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
-                      placeholder="예: 연세대 의예과는 생명과학, 화학 세특에서 실험 설계 능력과 의학적 탐구심을 강조해야 함. 특히 윤리적 판단력 관련 내용을 포함하면 유리..."
-                      rows={5}
-                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400 resize-none"
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      onClick={() => setShowForm(false)}
-                      className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground transition hover:text-foreground"
+                    <label className="text-xs font-medium text-muted-foreground">카테고리</label>
+                    <select
+                      value={editingId ? form.category : ingestCategory}
+                      onChange={(e) => editingId ? setForm((f) => ({ ...f, category: e.target.value })) : setIngestCategory(e.target.value)}
+                      className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400"
                     >
-                      취소
-                    </button>
-                    <button
-                      onClick={handleSave}
-                      className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400"
-                    >
-                      <Save className="h-4 w-4" />
-                      저장
-                    </button>
+                      {TRAINING_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                   </div>
+
+                  {/* 편집 모드: 텍스트 전용 */}
+                  {editingId ? (
+                    <>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">제목</label>
+                        <input
+                          value={form.title}
+                          onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">내용</label>
+                        <textarea
+                          value={form.content}
+                          onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+                          rows={5}
+                          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400 resize-none"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => setShowForm(false)} className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground transition hover:text-foreground">취소</button>
+                        <button onClick={handleSave} className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400">
+                          <Save className="h-4 w-4" />저장
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* 입력 타입 선택 탭 */}
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">입력 방식</label>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {INPUT_MODES.map((m) => (
+                            <button
+                              key={m.id}
+                              onClick={() => setInputMode(m.id)}
+                              className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                                inputMode === m.id
+                                  ? "bg-amber-500 text-black"
+                                  : "border border-border text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {m.icon}{m.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 텍스트 직접 입력 */}
+                      {inputMode === "text" && (
+                        <>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">제목</label>
+                            <input
+                              value={form.title}
+                              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                              placeholder="예: 연세대 의예과 세특 키워드"
+                              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              내용 <span className="text-[10px]">(AI가 이 내용을 그대로 학습합니다)</span>
+                            </label>
+                            <textarea
+                              value={form.content}
+                              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+                              placeholder="예: 연세대 의예과는 생명과학, 화학 세특에서 실험 설계 능력과 의학적 탐구심을 강조해야 함..."
+                              rows={5}
+                              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400 resize-none"
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => setShowForm(false)} className="rounded-xl border border-border px-4 py-2 text-sm text-muted-foreground transition hover:text-foreground">취소</button>
+                            <button onClick={handleSave} disabled={!form.title.trim() || !form.content.trim()} className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400 disabled:opacity-50">
+                              <Save className="h-4 w-4" />저장
+                            </button>
+                          </div>
+                        </>
+                      )}
+
+                      {/* URL 링크 입력 */}
+                      {inputMode === "url" && (
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              URL <span className="text-[10px]">(뉴스 기사, 블로그, 입시 정보 페이지 등)</span>
+                            </label>
+                            <input
+                              value={urlInput}
+                              onChange={(e) => setUrlInput(e.target.value)}
+                              placeholder="https://www.example.com/article/..."
+                              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400 font-mono"
+                            />
+                          </div>
+                          {urlMsg && (
+                            <div className={`rounded-xl px-3 py-2 text-xs ${urlMsg.type === "ok" ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive-foreground"}`}>
+                              {urlMsg.text}
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] text-muted-foreground">AI가 페이지 내용을 자동으로 읽고 핵심 입시 정보를 정리합니다.</p>
+                            <button
+                              onClick={handleIngestUrl}
+                              disabled={urlLoading || !urlInput.trim()}
+                              className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400 disabled:opacity-50 whitespace-nowrap"
+                            >
+                              {urlLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                              {urlLoading ? "분석 중…" : "분석·저장"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* PDF 업로드 */}
+                      {inputMode === "pdf" && (
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">PDF 파일</label>
+                            <div
+                              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background p-6 transition hover:border-amber-400/50"
+                              onClick={() => pdfRef.current?.click()}
+                            >
+                              <FileText className="h-8 w-8 text-muted-foreground/50" />
+                              {pdfFile ? (
+                                <span className="text-sm font-medium text-amber-400">{pdfFile.name}</span>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">클릭하여 PDF 선택</span>
+                              )}
+                              <span className="text-xs text-muted-foreground/60">텍스트 기반 PDF만 지원 (스캔본 불가)</span>
+                            </div>
+                            <input ref={pdfRef} type="file" accept=".pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) setPdfFile(f); }} />
+                          </div>
+                          {pdfMsg && (
+                            <div className={`rounded-xl px-3 py-2 text-xs ${pdfMsg.type === "ok" ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive-foreground"}`}>
+                              {pdfMsg.text}
+                            </div>
+                          )}
+                          <div className="flex justify-end">
+                            <button
+                              onClick={handleIngestPdf}
+                              disabled={pdfLoading || !pdfFile}
+                              className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400 disabled:opacity-50"
+                            >
+                              {pdfLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+                              {pdfLoading ? "추출 중…" : "분석·저장"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 이미지 업로드 */}
+                      {inputMode === "image" && (
+                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">이미지 파일</label>
+                            <div
+                              className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border bg-background p-4 transition hover:border-amber-400/50"
+                              onClick={() => imgRef.current?.click()}
+                            >
+                              {imgPreview ? (
+                                <img src={imgPreview} alt="preview" className="max-h-40 rounded-lg object-contain" />
+                              ) : (
+                                <>
+                                  <Image className="h-8 w-8 text-muted-foreground/50" />
+                                  <span className="text-sm text-muted-foreground">클릭하여 이미지 선택</span>
+                                  <span className="text-xs text-muted-foreground/60">JPG, PNG, WEBP 지원</span>
+                                </>
+                              )}
+                            </div>
+                            <input
+                              ref={imgRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (!f) return;
+                                setImgFile(f);
+                                const reader = new FileReader();
+                                reader.onload = (ev) => setImgPreview(ev.target?.result as string);
+                                reader.readAsDataURL(f);
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              이미지 설명 <span className="text-[10px]">(선택 — 입력하면 더 정확하게 분석됩니다)</span>
+                            </label>
+                            <textarea
+                              value={imgDesc}
+                              onChange={(e) => setImgDesc(e.target.value)}
+                              placeholder="예: 서울대 2026학년도 모집요강 캡처. 학종 모집인원 표 포함."
+                              rows={3}
+                              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400 resize-none"
+                            />
+                          </div>
+                          {imgMsg && (
+                            <div className={`rounded-xl px-3 py-2 text-xs ${imgMsg.type === "ok" ? "bg-emerald-500/10 text-emerald-400" : "bg-destructive/10 text-destructive-foreground"}`}>
+                              {imgMsg.text}
+                            </div>
+                          )}
+                          <div className="flex justify-end">
+                            <button
+                              onClick={handleIngestImage}
+                              disabled={imgLoading || !imgFile}
+                              className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400 disabled:opacity-50"
+                            >
+                              {imgLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Image className="h-4 w-4" />}
+                              {imgLoading ? "저장 중…" : "분석·저장"}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -286,12 +551,7 @@ function AdminPage() {
               <div className="rounded-2xl border border-dashed border-border bg-surface/50 p-10 text-center">
                 <BookOpen className="mx-auto h-10 w-10 text-muted-foreground/40" />
                 <p className="mt-3 text-sm text-muted-foreground">아직 등록된 학습 자료가 없습니다.</p>
-                <button
-                  onClick={openAdd}
-                  className="mt-3 text-sm text-amber-400 hover:underline"
-                >
-                  첫 번째 자료 추가하기 →
-                </button>
+                <button onClick={openAdd} className="mt-3 text-sm text-amber-400 hover:underline">첫 번째 자료 추가하기 →</button>
               </div>
             ) : (
               TRAINING_CATEGORIES.filter((c) => groupedDocs[c]?.length > 0).map((cat) => (
@@ -302,31 +562,20 @@ function AdminPage() {
                     <span className="text-xs font-normal">({groupedDocs[cat].length})</span>
                   </h3>
                   {groupedDocs[cat].map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="rounded-2xl border border-border bg-surface p-4 transition hover:border-amber-500/30"
-                    >
+                    <div key={doc.id} className="rounded-2xl border border-border bg-surface p-4 transition hover:border-amber-500/30">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-semibold">{doc.title}</div>
-                          <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                            {doc.content}
-                          </div>
+                          <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{doc.content}</div>
                           <div className="mt-1.5 text-[10px] text-muted-foreground/60">
                             등록: {new Date(doc.createdAt).toLocaleDateString("ko-KR")}
                           </div>
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
-                          <button
-                            onClick={() => openEdit(doc)}
-                            className="rounded-lg border border-border p-1.5 text-muted-foreground transition hover:border-amber-400 hover:text-amber-400"
-                          >
+                          <button onClick={() => openEdit(doc)} className="rounded-lg border border-border p-1.5 text-muted-foreground transition hover:border-amber-400 hover:text-amber-400">
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(doc.id)}
-                            className="rounded-lg border border-border p-1.5 text-muted-foreground transition hover:border-red-400 hover:text-red-400"
-                          >
+                          <button onClick={() => handleDelete(doc.id)} className="rounded-lg border border-border p-1.5 text-muted-foreground transition hover:border-red-400 hover:text-red-400">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -348,9 +597,7 @@ function AdminPage() {
                 {
                   label: "마지막 업데이트",
                   value: docs.length
-                    ? new Date(
-                        Math.max(...docs.map((d) => new Date(d.createdAt).getTime())),
-                      ).toLocaleDateString("ko-KR")
+                    ? new Date(Math.max(...docs.map((d) => new Date(d.createdAt).getTime()))).toLocaleDateString("ko-KR")
                     : "없음",
                   unit: "",
                   color: "text-green-400",
@@ -360,9 +607,7 @@ function AdminPage() {
                   <div className="text-xs text-muted-foreground">{stat.label}</div>
                   <div className={`mt-2 text-3xl font-bold ${stat.color}`}>
                     {stat.value}
-                    <span className="ml-1 text-sm font-normal text-muted-foreground">
-                      {stat.unit}
-                    </span>
+                    <span className="ml-1 text-sm font-normal text-muted-foreground">{stat.unit}</span>
                   </div>
                 </div>
               ))}
@@ -380,10 +625,7 @@ function AdminPage() {
                         <span className="font-medium">{count}개</span>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-amber-500 transition-all"
-                          style={{ width: `${pct}%` }}
-                        />
+                        <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
                   );
@@ -401,8 +643,10 @@ function YoutubeTab() {
   const [urls, setUrls] = useState("");
   const [category, setCategory] = useState(TRAINING_CATEGORIES[0]);
   const [submitting, setSubmitting] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [processMsg, setProcessMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [jobs, setJobs] = useState<{ id: string; url: string; status: string; error: string | null; created_at: string; doc_id?: string | null }[]>([]);
   const [summary, setSummary] = useState<Record<string, number>>({});
 
@@ -421,16 +665,13 @@ function YoutubeTab() {
   }, []);
 
   async function submit() {
-    const lines = urls
-      .split(/\n+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const lines = urls.split(/\n+/).map((s) => s.trim()).filter(Boolean);
     if (!lines.length) { setMsg("유효한 URL이 없습니다."); return; }
     if (lines.length > 10000) { setMsg("최대 10000개까지 한 번에 등록 가능합니다."); return; }
     setSubmitting(true); setMsg("");
     try {
       const r = await queueYoutubeJobsFn({ data: { urls: lines, category } });
-      setMsg(`${r.queued}개 등록 완료 (스킵 ${r.skipped}). 백그라운드에서 자동 처리됩니다 (1분 단위).`);
+      setMsg(`${r.queued}개 등록 완료 (스킵 ${r.skipped}). 아래 "지금 처리" 버튼을 눌러 즉시 처리하거나, 서버 자동 처리를 기다리세요.`);
       setUrls("");
       refresh();
     } catch (e) {
@@ -438,14 +679,23 @@ function YoutubeTab() {
     } finally { setSubmitting(false); }
   }
 
+  async function handleProcess() {
+    setProcessing(true); setProcessMsg(null);
+    try {
+      const r = await processYoutubeJobsFn({ data: { limit: 10 } });
+      setProcessMsg({ type: "ok", text: r.message });
+      await refresh();
+    } catch (e) {
+      setProcessMsg({ type: "err", text: e instanceof Error ? e.message : "처리 실패" });
+    } finally { setProcessing(false); }
+  }
+
   async function cancelJob(id: string) {
     setActingId(id);
     try {
       await cancelTrainingJobFn({ data: { id } });
       await refresh();
-    } finally {
-      setActingId(null);
-    }
+    } finally { setActingId(null); }
   }
 
   async function deleteJob(id: string) {
@@ -453,11 +703,10 @@ function YoutubeTab() {
     try {
       await deleteTrainingJobFn({ data: { id } });
       await refresh();
-    } finally {
-      setActingId(null);
-    }
+    } finally { setActingId(null); }
   }
 
+  const pendingCount = summary.pending ?? 0;
   const dataJobs = jobs.filter((j) => j.status === "done");
   const queueJobs = jobs.filter((j) => j.status !== "done");
 
@@ -466,22 +715,53 @@ function YoutubeTab() {
       <div className="rounded-2xl border border-border bg-surface p-5">
         <h2 className="text-base font-bold">유튜브 일괄 학습</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          URL을 한 줄에 하나씩 (최대 10000개) 붙여넣으세요. 마크다운 링크/검색결과 형태여도 유튜브 링크만 추출해 큐에 넣습니다.
-          창을 닫아도 백그라운드(서버 cron 1분 주기)에서 계속 처리됩니다.
+          URL을 한 줄에 하나씩 붙여넣으세요. 등록 후 "지금 처리" 버튼을 누르면 트랜스크립트를 가져와 AI가 자동 요약·저장합니다.
         </p>
         <div className="mt-4 grid gap-3">
           <select value={category} onChange={(e) => setCategory(e.target.value)}
             className="rounded-xl border border-border bg-background px-3 py-2 text-sm">
             {TRAINING_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <textarea value={urls} onChange={(e) => setUrls(e.target.value)} rows={8}
+          <textarea value={urls} onChange={(e) => setUrls(e.target.value)} rows={6}
             placeholder="https://www.youtube.com/watch?v=...\nhttps://youtu.be/..."
             className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-mono" />
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <span className="text-xs text-muted-foreground">{msg}</span>
             <button onClick={submit} disabled={submitting}
               className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-black disabled:opacity-50">
               {submitting ? "등록 중…" : "큐에 등록"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 즉시 처리 버튼 */}
+      <div className="rounded-2xl border border-blue-500/30 bg-blue-500/5 p-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-sm font-semibold text-blue-300">
+              즉시 처리 <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-400">대기 {pendingCount}개</span>
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              대기 중인 영상의 자막을 가져와 AI로 요약합니다. 한 번에 최대 10개씩 처리됩니다.
+            </p>
+            {processMsg && (
+              <p className={`mt-1.5 text-xs font-medium ${processMsg.type === "ok" ? "text-emerald-400" : "text-red-400"}`}>
+                {processMsg.text}
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={refresh} className="flex items-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground transition hover:text-foreground">
+              <RefreshCw className="h-3.5 w-3.5" />새로고침
+            </button>
+            <button
+              onClick={handleProcess}
+              disabled={processing || pendingCount === 0}
+              className="flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-400 disabled:opacity-50"
+            >
+              {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              {processing ? "처리 중…" : "지금 처리"}
             </button>
           </div>
         </div>
@@ -501,33 +781,36 @@ function YoutubeTab() {
           <div>
             <div className="mb-2 text-xs font-semibold text-muted-foreground">작업 큐</div>
             <div className="max-h-64 overflow-auto space-y-1">
-          {queueJobs.map((j) => (
-            <div key={j.id} className="rounded-lg border border-border/50 px-3 py-1.5 text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate flex-1">{j.url}</span>
-                <div className="flex items-center gap-2">
-                  <span className={
-                    j.status === "done" ? "text-green-400" :
-                    j.status === "failed" ? "text-red-400" :
-                    j.status === "processing" ? "text-blue-400" : j.status === "cancelled" ? "text-muted-foreground" : "text-amber-400"
-                  }>{j.status}</span>
-                  {(j.status === "pending" || j.status === "processing" || j.status === "failed") && (
-                    <button onClick={() => cancelJob(j.id)} disabled={actingId === j.id} className="rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50">취소</button>
+              {queueJobs.map((j) => (
+                <div key={j.id} className="rounded-lg border border-border/50 px-3 py-1.5 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate flex-1">{j.url}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={
+                        j.status === "done" ? "text-green-400" :
+                        j.status === "failed" ? "text-red-400" :
+                        j.status === "processing" ? "text-blue-400" :
+                        j.status === "cancelled" ? "text-muted-foreground" : "text-amber-400"
+                      }>{j.status}</span>
+                      {(j.status === "pending" || j.status === "processing" || j.status === "failed") && (
+                        <button onClick={() => cancelJob(j.id)} disabled={actingId === j.id}
+                          className="rounded-md border border-border px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50">취소</button>
+                      )}
+                      <button onClick={() => deleteJob(j.id)} disabled={actingId === j.id}
+                        className="rounded-md border border-border px-2 py-0.5 text-[11px] text-red-400/90 disabled:opacity-50">삭제</button>
+                    </div>
+                  </div>
+                  {j.error && (
+                    <div className="mt-1 text-[11px] text-red-400/80 break-words">⚠ {j.error}</div>
                   )}
-                  <button onClick={() => deleteJob(j.id)} disabled={actingId === j.id} className="rounded-md border border-border px-2 py-0.5 text-[11px] text-red-400/90 disabled:opacity-50">삭제</button>
                 </div>
-              </div>
-              {j.error && (
-                <div className="mt-1 text-[11px] text-red-400/80 break-words">⚠ {j.error}</div>
-              )}
-            </div>
-          ))}
-          {!queueJobs.length && <p className="text-xs text-muted-foreground">대기/실패/처리중 작업이 없습니다.</p>}
+              ))}
+              {!queueJobs.length && <p className="text-xs text-muted-foreground">대기/실패/처리중 작업이 없습니다.</p>}
             </div>
           </div>
 
           <div>
-            <div className="mb-2 text-xs font-semibold text-green-400">데이터</div>
+            <div className="mb-2 text-xs font-semibold text-green-400">완료된 데이터</div>
             <div className="max-h-64 overflow-auto space-y-1">
               {dataJobs.map((j) => (
                 <div key={j.id} className="rounded-lg border border-green-500/20 bg-green-500/5 px-3 py-2 text-xs">
@@ -567,8 +850,7 @@ function MembersTab() {
   const [q, setQ] = useState("");
 
   async function load() {
-    setLoading(true);
-    setErr("");
+    setLoading(true); setErr("");
     try {
       const r = await listAllUsersFn({ data: { passcode: ADMIN_PASSCODE } });
       const sorted = [...r.users].sort((a, b) => {
@@ -579,39 +861,25 @@ function MembersTab() {
       setUsers(sorted);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "회원 목록을 불러오지 못했습니다.");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
 
-  useEffect(() => {
-    void load();
-  }, []);
+  useEffect(() => { void load(); }, []);
 
   async function toggleDetail(userId: string) {
-    if (expanded === userId) {
-      setExpanded(null);
-      return;
-    }
+    if (expanded === userId) { setExpanded(null); return; }
     setExpanded(userId);
     if (detail[userId]) return;
     setDetailLoading(userId);
     try {
       const r = await getUserActivityDetailFn({ data: { passcode: ADMIN_PASSCODE, userId } });
       setDetail((d) => ({ ...d, [userId]: r.rows }));
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setDetailLoading(null);
-    }
+    } catch (e) { console.error(e); }
+    finally { setDetailLoading(null); }
   }
 
-  const filtered = q
-    ? users.filter((u) => u.email.toLowerCase().includes(q.toLowerCase()))
-    : users;
-
-  const fmtDate = (s: string | null) =>
-    s ? new Date(s).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : "—";
+  const filtered = q ? users.filter((u) => u.email.toLowerCase().includes(q.toLowerCase())) : users;
+  const fmtDate = (s: string | null) => s ? new Date(s).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : "—";
 
   return (
     <div className="space-y-4">
@@ -626,39 +894,22 @@ function MembersTab() {
               모든 가입 회원과 활동 기록을 확인할 수 있어요. 행을 클릭하면 세부 내역이 펼쳐집니다.
             </p>
           </div>
-          <button
-            onClick={load}
-            disabled={loading}
-            className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground transition hover:text-foreground disabled:opacity-50"
-          >
+          <button onClick={load} disabled={loading}
+            className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground transition hover:text-foreground disabled:opacity-50">
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "새로고침"}
           </button>
         </div>
-
         <div className="mt-4">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="이메일로 검색…"
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400"
-          />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="이메일로 검색…"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400" />
         </div>
-
-        {err && (
-          <div className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
-            {err}
-          </div>
-        )}
+        {err && <div className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">{err}</div>}
       </div>
 
       {loading && !users.length ? (
-        <div className="grid place-items-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <div className="grid place-items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : !filtered.length ? (
-        <div className="rounded-2xl border border-dashed border-border bg-surface/50 p-10 text-center text-sm text-muted-foreground">
-          회원이 없습니다.
-        </div>
+        <div className="rounded-2xl border border-dashed border-border bg-surface/50 p-10 text-center text-sm text-muted-foreground">회원이 없습니다.</div>
       ) : (
         <div className="space-y-2">
           {filtered.map((u) => {
@@ -666,22 +917,14 @@ function MembersTab() {
             const rows = detail[u.id] ?? [];
             return (
               <div key={u.id} className="rounded-2xl border border-border bg-surface">
-                <button
-                  onClick={() => toggleDetail(u.id)}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-surface-elevated"
-                >
-                  {isOpen ? (
-                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  )}
+                <button onClick={() => toggleDetail(u.id)}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-surface-elevated">
+                  {isOpen ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="truncate text-sm font-semibold">{u.email || "(이메일 없음)"}</span>
                       {!u.email_confirmed_at && (
-                        <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-400">
-                          미인증
-                        </span>
+                        <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-400">미인증</span>
                       )}
                     </div>
                     <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
@@ -694,20 +937,15 @@ function MembersTab() {
                     활동 {u.activity_count}건
                   </div>
                 </button>
-
                 {isOpen && (
                   <div className="border-t border-border px-4 py-3">
                     {detailLoading === u.id ? (
-                      <div className="grid place-items-center py-4">
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      </div>
+                      <div className="grid place-items-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
                     ) : !rows.length ? (
                       <p className="py-2 text-xs text-muted-foreground">아직 저장된 활동이 없습니다.</p>
                     ) : (
                       <div className="space-y-1.5">
-                        <div className="text-[11px] text-muted-foreground">
-                          저장 항목: {u.activity_keys.join(", ") || "—"}
-                        </div>
+                        <div className="text-[11px] text-muted-foreground">저장 항목: {u.activity_keys.join(", ") || "—"}</div>
                         <div className="overflow-hidden rounded-xl border border-border">
                           <table className="w-full text-xs">
                             <thead className="bg-background/50 text-muted-foreground">
@@ -723,9 +961,7 @@ function MembersTab() {
                                   try {
                                     const s = typeof r.value === "string" ? r.value : JSON.stringify(r.value);
                                     return s.length > 80 ? s.slice(0, 80) + "…" : s;
-                                  } catch {
-                                    return "—";
-                                  }
+                                  } catch { return "—"; }
                                 })();
                                 return (
                                   <tr key={`${r.key}-${i}`} className="border-t border-border">

@@ -25,6 +25,7 @@ import { Route as CoachRouteImport } from './routes/coach'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicProcessTrainingRouteImport } from './routes/api/public/process-training'
+import { Route as ApiPublicAdmissionsRefreshRouteImport } from './routes/api/public/admissions-refresh'
 
 const SubjectsRoute = SubjectsRouteImport.update({
   id: '/subjects',
@@ -107,6 +108,12 @@ const ApiPublicProcessTrainingRoute =
     path: '/api/public/process-training',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicAdmissionsRefreshRoute =
+  ApiPublicAdmissionsRefreshRouteImport.update({
+    id: '/api/public/admissions-refresh',
+    path: '/api/public/admissions-refresh',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/parent': typeof ParentRoute
   '/saengbu': typeof SaengbuRoute
   '/subjects': typeof SubjectsRoute
+  '/api/public/admissions-refresh': typeof ApiPublicAdmissionsRefreshRoute
   '/api/public/process-training': typeof ApiPublicProcessTrainingRoute
 }
 export interface FileRoutesByTo {
@@ -142,6 +150,7 @@ export interface FileRoutesByTo {
   '/parent': typeof ParentRoute
   '/saengbu': typeof SaengbuRoute
   '/subjects': typeof SubjectsRoute
+  '/api/public/admissions-refresh': typeof ApiPublicAdmissionsRefreshRoute
   '/api/public/process-training': typeof ApiPublicProcessTrainingRoute
 }
 export interface FileRoutesById {
@@ -161,6 +170,7 @@ export interface FileRoutesById {
   '/parent': typeof ParentRoute
   '/saengbu': typeof SaengbuRoute
   '/subjects': typeof SubjectsRoute
+  '/api/public/admissions-refresh': typeof ApiPublicAdmissionsRefreshRoute
   '/api/public/process-training': typeof ApiPublicProcessTrainingRoute
 }
 export interface FileRouteTypes {
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/parent'
     | '/saengbu'
     | '/subjects'
+    | '/api/public/admissions-refresh'
     | '/api/public/process-training'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -199,6 +210,7 @@ export interface FileRouteTypes {
     | '/parent'
     | '/saengbu'
     | '/subjects'
+    | '/api/public/admissions-refresh'
     | '/api/public/process-training'
   id:
     | '__root__'
@@ -217,6 +229,7 @@ export interface FileRouteTypes {
     | '/parent'
     | '/saengbu'
     | '/subjects'
+    | '/api/public/admissions-refresh'
     | '/api/public/process-training'
   fileRoutesById: FileRoutesById
 }
@@ -236,6 +249,7 @@ export interface RootRouteChildren {
   ParentRoute: typeof ParentRoute
   SaengbuRoute: typeof SaengbuRoute
   SubjectsRoute: typeof SubjectsRoute
+  ApiPublicAdmissionsRefreshRoute: typeof ApiPublicAdmissionsRefreshRoute
   ApiPublicProcessTrainingRoute: typeof ApiPublicProcessTrainingRoute
 }
 
@@ -353,6 +367,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicProcessTrainingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/admissions-refresh': {
+      id: '/api/public/admissions-refresh'
+      path: '/api/public/admissions-refresh'
+      fullPath: '/api/public/admissions-refresh'
+      preLoaderRoute: typeof ApiPublicAdmissionsRefreshRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -372,6 +393,7 @@ const rootRouteChildren: RootRouteChildren = {
   ParentRoute: ParentRoute,
   SaengbuRoute: SaengbuRoute,
   SubjectsRoute: SubjectsRoute,
+  ApiPublicAdmissionsRefreshRoute: ApiPublicAdmissionsRefreshRoute,
   ApiPublicProcessTrainingRoute: ApiPublicProcessTrainingRoute,
 }
 export const routeTree = rootRouteImport

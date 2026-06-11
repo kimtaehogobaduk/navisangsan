@@ -11,6 +11,9 @@ import {
   Users,
   Brain,
   LogOut,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { TRAINING_CATEGORIES, type TrainingDoc } from "@/lib/training";
 import {
@@ -22,13 +25,16 @@ import {
   cancelTrainingJobFn,
   deleteTrainingJobFn,
 } from "@/lib/training-jobs.functions";
+import { listAllUsersFn, getUserActivityDetailFn } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "관리자 패널 — NAVI" }] }),
   component: AdminPage,
 });
 
-type AdminTab = "training" | "youtube" | "stats";
+const ADMIN_PASSCODE = "sangsanadmin";
+
+type AdminTab = "training" | "youtube" | "members" | "stats";
 
 function AdminPage() {
   const navigate = useNavigate();

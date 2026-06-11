@@ -1,7 +1,2 @@
-import { initDb } from "@/lib/db.server";
-import { startAutoCollector } from "@/lib/auto-collector.server";
-
-initDb().catch(console.error);
-startAutoCollector().catch(console.error);
-
+// Default Lovable TanStack Start server entry.
 export { default } from "@tanstack/react-start/server-entry";

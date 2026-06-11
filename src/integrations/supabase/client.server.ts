@@ -1,36 +1,184 @@
+import { createClient } from "@supabase/supabase-js";
 import { getPool } from "@/lib/db.server";
 
-export { getPool };
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const hasSupabase = !!(SUPABASE_URL && SERVICE_KEY);
 
-type WhereClause = { column: string; op: string; value: unknown };
-type UpdateData = Record<string, unknown>;
+// ─── PostgreSQL adapter (used when Supabase is not configured) ──────────────
 
-class TableQuery {
+type WhereFilter = { col: string; op: string; val: unknown };
+type InFilter = { col: string; vals: unknown[] };
+
+function buildWhere(wheres: WhereFilter[], inClauses: InFilter[], startIdx = 1) {
+  const parts: string[] = [];
+  const params: unknown[] = [];
+  let idx = startIdx;
+  for (const w of wheres) {
+    parts.push(`"${w.col}" ${w.op} $${idx++}`);
+    params.push(w.val);
+  }
+  for (const ic of inClauses) {
+    const placeholders = ic.vals.map(() => `$${idx++}`).join(", ");
+    parts.push(`"${ic.col}" IN (${placeholders})`);
+    params.push(...ic.vals);
+  }
+  return { clause: parts.length ? `WHERE ${parts.join(" AND ")}` : "", params };
+}
+
+function serialize(v: unknown): unknown {
+  return typeof v === "object" && v !== null ? JSON.stringify(v) : v;
+}
+
+class MutateBuilder {
   private _table: string;
-  private _wheres: WhereClause[] = [];
-  private _inClause: { column: string; values: unknown[] } | null = null;
+  private _op: "insert" | "update" | "upsert";
+  private _data: Record<string, unknown> | Record<string, unknown>[];
+  private _wheres: WhereFilter[] = [];
+  private _inClauses: InFilter[] = [];
+  private _opts: { onConflict?: string };
+  private _returnCols = "*";
+  private _isSingle = false;
+
+  constructor(
+    table: string,
+    op: "insert" | "update" | "upsert",
+    data: Record<string, unknown> | Record<string, unknown>[],
+    opts: { onConflict?: string } = {},
+  ) {
+    this._table = table;
+    this._op = op;
+    this._data = data;
+    this._opts = opts;
+  }
+
+  eq(col: string, val: unknown) {
+    this._wheres.push({ col, op: "=", val });
+    return this;
+  }
+
+  in(col: string, vals: unknown[]) {
+    this._inClauses.push({ col, vals });
+    return this;
+  }
+
+  select(cols = "*") {
+    this._returnCols = cols;
+    return this;
+  }
+
+  single() {
+    this._isSingle = true;
+    return this._exec();
+  }
+
+  then(
+    resolve: (v: { data: unknown; error: { message: string } | null }) => unknown,
+    reject: (e: unknown) => unknown,
+  ) {
+    return this._exec().then(resolve, reject);
+  }
+
+  private async _exec(): Promise<{ data: unknown; error: { message: string } | null }> {
+    const pool = getPool();
+    try {
+      if (this._op === "insert") {
+        const rows = Array.isArray(this._data) ? this._data : [this._data];
+        let lastRow: Record<string, unknown> | null = null;
+        for (const row of rows) {
+          const keys = Object.keys(row);
+          const vals = keys.map((k) => serialize(row[k]));
+          const cols = keys.map((k) => `"${k}"`).join(", ");
+          const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+          const returning =
+            this._returnCols === "*" ? "RETURNING *" : `RETURNING ${this._returnCols}`;
+          const res = await pool.query(
+            `INSERT INTO "${this._table}" (${cols}) VALUES (${placeholders}) ${returning}`,
+            vals,
+          );
+          lastRow = res.rows[0] ?? null;
+        }
+        return { data: lastRow, error: null };
+      }
+
+      if (this._op === "update") {
+        const data = this._data as Record<string, unknown>;
+        const keys = Object.keys(data);
+        const sets = keys.map((k, i) => `"${k}" = $${i + 1}`).join(", ");
+        const vals: unknown[] = keys.map((k) => serialize(data[k]));
+        const { clause, params } = buildWhere(this._wheres, this._inClauses, keys.length + 1);
+        await pool.query(`UPDATE "${this._table}" SET ${sets} ${clause}`.trim(), [
+          ...vals,
+          ...params,
+        ]);
+        return { data: null, error: null };
+      }
+
+      if (this._op === "upsert") {
+        const rows = Array.isArray(this._data) ? this._data : [this._data];
+        const conflict = this._opts.onConflict ?? "id";
+        const conflictCols = conflict
+          .split(",")
+          .map((c) => `"${c.trim()}"`)
+          .join(", ");
+        const conflictKeys = conflict.split(",").map((c) => c.trim());
+        for (const row of rows) {
+          const keys = Object.keys(row);
+          const vals = keys.map((k) => serialize(row[k]));
+          const cols = keys.map((k) => `"${k}"`).join(", ");
+          const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
+          const updates = keys
+            .filter((k) => !conflictKeys.includes(k))
+            .map((k) => `"${k}" = EXCLUDED."${k}"`)
+            .join(", ");
+          const suffix = updates
+            ? `ON CONFLICT (${conflictCols}) DO UPDATE SET ${updates}`
+            : `ON CONFLICT (${conflictCols}) DO NOTHING`;
+          await pool.query(
+            `INSERT INTO "${this._table}" (${cols}) VALUES (${placeholders}) ${suffix}`,
+            vals,
+          );
+        }
+        return { data: null, error: null };
+      }
+
+      return { data: null, error: null };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error(`[db] ${this._op} "${this._table}" 오류:`, message);
+      return { data: null, error: { message } };
+    }
+  }
+}
+
+class QueryBuilder {
+  private _table: string;
+  private _wheres: WhereFilter[] = [];
+  private _inClauses: InFilter[] = [];
   private _selectCols = "*";
-  private _orderCols: Array<{ col: string; asc: boolean }> = [];
+  private _orderCols: { col: string; asc: boolean }[] = [];
   private _limitVal: number | null = null;
   private _isMaybeSingle = false;
   private _isSingle = false;
+  private _pendingOp: "select" | "delete" | null = null;
 
   constructor(table: string) {
     this._table = table;
   }
 
-  select(cols: string) {
+  select(cols = "*") {
     this._selectCols = cols;
+    this._pendingOp = "select";
     return this;
   }
 
   eq(col: string, val: unknown) {
-    this._wheres.push({ column: col, op: "=", value: val });
+    this._wheres.push({ col, op: "=", val });
     return this;
   }
 
   in(col: string, vals: unknown[]) {
-    this._inClause = { column: col, values: vals };
+    this._inClauses.push({ col, vals });
     return this;
   }
 
@@ -46,175 +194,99 @@ class TableQuery {
 
   maybeSingle() {
     this._isMaybeSingle = true;
-    return this._execute() as Promise<{ data: Record<string, unknown> | null; error: null }>;
+    return this._execSelect();
   }
 
   single() {
     this._isSingle = true;
-    return this._execute() as Promise<{ data: Record<string, unknown>; error: null }>;
+    return this._execSelect();
   }
 
-  then(
-    resolve: (val: { data: unknown; error: null }) => void,
-    reject: (e: unknown) => void,
+  delete() {
+    this._pendingOp = "delete";
+    return this;
+  }
+
+  insert(data: Record<string, unknown> | Record<string, unknown>[]) {
+    return new MutateBuilder(this._table, "insert", data);
+  }
+
+  update(data: Record<string, unknown>) {
+    const mb = new MutateBuilder(this._table, "update", data);
+    for (const w of this._wheres) mb.eq(w.col, w.val);
+    for (const ic of this._inClauses) mb.in(ic.col, ic.vals);
+    return mb;
+  }
+
+  upsert(
+    data: Record<string, unknown> | Record<string, unknown>[],
+    opts?: { onConflict?: string },
   ) {
-    return this._execute().then(resolve, reject);
+    return new MutateBuilder(this._table, "upsert", data, opts);
   }
 
-  private async _execute(): Promise<{ data: unknown; error: null }> {
+  then(resolve: (v: unknown) => unknown, reject: (e: unknown) => unknown) {
+    if (this._pendingOp === "delete") return this._execDelete().then(resolve, reject);
+    return this._execSelect().then(resolve, reject);
+  }
+
+  private async _execSelect(): Promise<{ data: unknown; error: null }> {
     const pool = getPool();
-    const params: unknown[] = [];
-    let idx = 1;
-
-    const whereParts: string[] = [];
-    for (const w of this._wheres) {
-      whereParts.push(`"${w.column}" ${w.op} $${idx++}`);
-      params.push(w.value);
-    }
-    if (this._inClause) {
-      const placeholders = this._inClause.values.map(() => `$${idx++}`).join(", ");
-      whereParts.push(`"${this._inClause.column}" IN (${placeholders})`);
-      params.push(...this._inClause.values);
-    }
-
-    const where = whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : "";
-    const order =
-      this._orderCols.length > 0
-        ? `ORDER BY ${this._orderCols.map((o) => `"${o.col}" ${o.asc ? "ASC" : "DESC"}`).join(", ")}`
-        : "";
-    const limit = this._limitVal !== null ? `LIMIT ${this._limitVal}` : "";
-
-    const sql = `SELECT ${this._selectCols === "*" ? "*" : this._selectCols} FROM "${this._table}" ${where} ${order} ${limit}`.trim();
+    const { clause, params } = buildWhere(this._wheres, this._inClauses);
+    const orderSql = this._orderCols.length
+      ? `ORDER BY ${this._orderCols.map((o) => `"${o.col}" ${o.asc ? "ASC" : "DESC"}`).join(", ")}`
+      : "";
+    const limitSql = this._limitVal !== null ? `LIMIT ${this._limitVal}` : "";
+    const sql = `SELECT ${this._selectCols} FROM "${this._table}" ${clause} ${orderSql} ${limitSql}`
+      .replace(/\s+/g, " ")
+      .trim();
     const res = await pool.query(sql, params);
-
     if (this._isMaybeSingle || this._isSingle) {
       return { data: res.rows[0] ?? null, error: null };
     }
     return { data: res.rows, error: null };
   }
 
-  async insert(data: Record<string, unknown> | Record<string, unknown>[]) {
+  private async _execDelete(): Promise<{ error: null }> {
     const pool = getPool();
-    const rows = Array.isArray(data) ? data : [data];
-    let lastRow: Record<string, unknown> | null = null;
-    for (const row of rows) {
-      const keys = Object.keys(row);
-      const vals = keys.map((k) => {
-        const v = row[k];
-        return typeof v === "object" && v !== null ? JSON.stringify(v) : v;
-      });
-      const cols = keys.map((k) => `"${k}"`).join(", ");
-      const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
-      const res = await pool.query(
-        `INSERT INTO "${this._table}" (${cols}) VALUES (${placeholders}) RETURNING *`,
-        vals,
-      );
-      lastRow = res.rows[0] ?? null;
-    }
-    return {
-      data: lastRow,
-      error: null,
-      select: (_cols?: string) => ({
-        single: async () => ({ data: lastRow, error: null }),
-      }),
-    };
-  }
-
-  async update(data: UpdateData) {
-    const pool = getPool();
-    const keys = Object.keys(data);
-    const sets = keys.map((k, i) => `"${k}" = $${i + 1}`).join(", ");
-    const vals: unknown[] = keys.map((k) => {
-      const v = data[k];
-      return typeof v === "object" && v !== null ? JSON.stringify(v) : v;
-    });
-    let idx = keys.length + 1;
-
-    const whereParts: string[] = [];
-    for (const w of this._wheres) {
-      whereParts.push(`"${w.column}" ${w.op} $${idx++}`);
-      vals.push(w.value);
-    }
-    if (this._inClause) {
-      const placeholders = this._inClause.values.map(() => `$${idx++}`).join(", ");
-      whereParts.push(`"${this._inClause.column}" IN (${placeholders})`);
-      vals.push(...this._inClause.values);
-    }
-
-    const where = whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : "";
-    const sql = `UPDATE "${this._table}" SET ${sets} ${where}`.trim();
-    await pool.query(sql, vals);
-    return { data: null, error: null };
-  }
-
-  async upsert(
-    data: Record<string, unknown> | Record<string, unknown>[],
-    opts?: { onConflict?: string },
-  ) {
-    const pool = getPool();
-    const rows = Array.isArray(data) ? data : [data];
-    const conflict = opts?.onConflict ?? "id";
-
-    for (const row of rows) {
-      const keys = Object.keys(row);
-      const vals = keys.map((k) => {
-        const v = row[k];
-        return typeof v === "object" && v !== null ? JSON.stringify(v) : v;
-      });
-      const cols = keys.map((k) => `"${k}"`).join(", ");
-      const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
-      const conflictCols = conflict
-        .split(",")
-        .map((c) => `"${c.trim()}"`)
-        .join(", ");
-      const updates = keys
-        .filter((k) => !conflict.split(",").map((c) => c.trim()).includes(k))
-        .map((k) => `"${k}" = EXCLUDED."${k}"`)
-        .join(", ");
-      const upsertSuffix = updates
-        ? `ON CONFLICT (${conflictCols}) DO UPDATE SET ${updates}`
-        : `ON CONFLICT (${conflictCols}) DO NOTHING`;
-      await pool.query(
-        `INSERT INTO "${this._table}" (${cols}) VALUES (${placeholders}) ${upsertSuffix}`,
-        vals,
-      );
-    }
-    return { error: null };
-  }
-
-  async delete() {
-    const pool = getPool();
-    const params: unknown[] = [];
-    let idx = 1;
-
-    const whereParts: string[] = [];
-    for (const w of this._wheres) {
-      whereParts.push(`"${w.column}" ${w.op} $${idx++}`);
-      params.push(w.value);
-    }
-    if (this._inClause) {
-      const placeholders = this._inClause.values.map(() => `$${idx++}`).join(", ");
-      whereParts.push(`"${this._inClause.column}" IN (${placeholders})`);
-      params.push(...this._inClause.values);
-    }
-
-    const where = whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : "";
-    await pool.query(`DELETE FROM "${this._table}" ${where}`.trim(), params);
+    const { clause, params } = buildWhere(this._wheres, this._inClauses);
+    await pool.query(`DELETE FROM "${this._table}" ${clause}`.trim(), params);
     return { error: null };
   }
 }
 
-export const supabaseAdmin = {
-  from: (table: string) => new TableQuery(table),
+// ─── pg adapter object (mirrors Supabase admin API shape) ─────────────────
+
+const pgAdapter = {
+  from: (table: string) => new QueryBuilder(table),
   auth: {
     admin: {
-      listUsers: async (_opts?: { page?: number; perPage?: number }) => {
-        return { data: { users: [] as Array<{ id: string; email?: string; created_at: string; last_sign_in_at?: string | null; email_confirmed_at?: string | null }> }, error: null };
-      },
+      listUsers: async (_opts?: { page?: number; perPage?: number }) => ({
+        data: {
+          users: [] as Array<{
+            id: string;
+            email?: string;
+            created_at: string;
+            last_sign_in_at?: string | null;
+            email_confirmed_at?: string | null;
+          }>,
+        },
+        error: null,
+      }),
     },
     getClaims: async (_token: string) => ({
       data: null as null,
-      error: new Error("not supported"),
+      error: new Error("Supabase not configured"),
     }),
   },
 };
+
+// ─── Exports ──────────────────────────────────────────────────────────────
+
+export const supabaseAdmin: typeof pgAdapter = hasSupabase
+  ? (createClient(SUPABASE_URL!, SERVICE_KEY!, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    }) as unknown as typeof pgAdapter)
+  : pgAdapter;
+
+export { getPool };

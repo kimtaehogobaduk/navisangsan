@@ -1,0 +1,3 @@
+- [Dual-env DB adapter](dual-env-adapter.md) — supabaseAdmin auto-picks Supabase OR pg; both environments share the same calling code.
+- [YouTube utils](youtube-utils.md) — extractYoutubeId/Urls consolidated in src/lib/utils/youtube.ts; both process-training.ts and training-jobs.functions.ts import from there.
+- [Dead files removed](dead-files.md) — 4 files deleted that were never imported; see list before recreating any.

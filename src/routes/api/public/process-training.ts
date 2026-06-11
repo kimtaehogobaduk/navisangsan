@@ -1,14 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { YoutubeTranscript } from "youtube-transcript";
 import { Innertube } from "youtubei.js";
+import { extractYoutubeId } from "@/lib/utils/youtube";
 
 const BATCH = 5;
 const MAX_ATTEMPTS = 8;
-
-function extractYoutubeId(url: string): string | null {
-  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/);
-  return m ? m[1] : null;
-}
 
 async function fetchYoutubeMeta(videoId: string): Promise<{ title: string; channel: string } | null> {
   try {

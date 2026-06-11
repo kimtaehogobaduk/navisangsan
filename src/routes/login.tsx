@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import { Compass, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Compass, Eye, EyeOff, Loader2, Mail, ShieldCheck } from "lucide-react";
 import { loadProfile } from "@/lib/profile";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -11,6 +11,8 @@ export const Route = createFileRoute("/login")({
 
 const ADMIN_ID = "Sangsanadmin";
 const ADMIN_PW = "sangsanadmin";
+const REMEMBER_EMAIL_KEY = "navi.remember.email";
+const REMEMBER_PW_KEY = "navi.remember.pw";
 
 type Tab = "signin" | "signup" | "admin";
 
@@ -23,7 +25,32 @@ function LoginPage() {
   const [adminPw, setAdminPw] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: "ok" | "err" | "info"; text: string } | null>(null);
+  const [rememberEmail, setRememberEmail] = useState(false);
+  const [rememberPw, setRememberPw] = useState(false);
+
+  // 자동저장된 값 불러오기
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const savedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY);
+    const savedPw = localStorage.getItem(REMEMBER_PW_KEY);
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberEmail(true);
+    }
+    if (savedPw) {
+      setPw(savedPw);
+      setRememberPw(true);
+    }
+  }, []);
+
+  function persistRemembered() {
+    if (typeof window === "undefined") return;
+    if (rememberEmail) localStorage.setItem(REMEMBER_EMAIL_KEY, email);
+    else localStorage.removeItem(REMEMBER_EMAIL_KEY);
+    if (rememberPw) localStorage.setItem(REMEMBER_PW_KEY, pw);
+    else localStorage.removeItem(REMEMBER_PW_KEY);
+  }
 
   async function handleSignIn() {
     setLoading(true);
@@ -31,6 +58,7 @@ function LoginPage() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password: pw });
       if (error) throw error;
+      persistRemembered();
       navigate({ to: "/dashboard" });
     } catch (e) {
       setMessage({ type: "err", text: e instanceof Error ? e.message : "로그인 실패" });
@@ -51,9 +79,17 @@ function LoginPage() {
     setLoading(true);
     setMessage(null);
     try {
-      const { error } = await supabase.auth.signUp({ email, password: pw });
+      const { error } = await supabase.auth.signUp({
+        email,
+        password: pw,
+        options: { emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined },
+      });
       if (error) throw error;
-      setMessage({ type: "ok", text: "가입 완료! 이메일을 확인하거나 바로 로그인하세요." });
+      persistRemembered();
+      setMessage({
+        type: "info",
+        text: `📧 ${email} 로 인증 메일을 보냈어요! 메일함을 확인하고 인증 링크를 클릭해야 로그인할 수 있습니다. (스팸함도 확인해주세요)`,
+      });
       setTab("signin");
     } catch (e) {
       setMessage({ type: "err", text: e instanceof Error ? e.message : "회원가입 실패" });
@@ -70,6 +106,8 @@ function LoginPage() {
       setMessage({ type: "err", text: "관리자 ID 또는 비밀번호가 올바르지 않습니다." });
     }
   }
+
+  const isSignupTab = tab === "signup";
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
@@ -105,11 +143,22 @@ function LoginPage() {
           </div>
 
           <div className="p-6 space-y-4">
+            {isSignupTab && (
+              <div className="flex items-start gap-2 rounded-xl bg-brand/10 px-3 py-2.5 text-xs text-brand">
+                <Mail className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  가입 후 입력한 이메일로 <b>인증 링크</b>가 전송됩니다. 메일함에서 링크를 클릭해야 로그인할 수 있어요.
+                </span>
+              </div>
+            )}
+
             {message && (
               <div
                 className={`rounded-xl px-3 py-2 text-sm ${
                   message.type === "ok"
                     ? "bg-emerald-500/10 text-emerald-400"
+                    : message.type === "info"
+                    ? "bg-brand/10 text-brand"
                     : "bg-destructive/10 text-destructive-foreground"
                 }`}
               >
@@ -150,6 +199,29 @@ function LoginPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* 자동저장 옵션 */}
+                <div className="flex items-center gap-4 pt-0.5">
+                  <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={rememberEmail}
+                      onChange={(e) => setRememberEmail(e.target.checked)}
+                      className="h-3 w-3 cursor-pointer accent-brand"
+                    />
+                    이메일 자동저장
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={rememberPw}
+                      onChange={(e) => setRememberPw(e.target.checked)}
+                      className="h-3 w-3 cursor-pointer accent-brand"
+                    />
+                    비밀번호 자동저장
+                  </label>
+                </div>
+
                 <button
                   onClick={tab === "signin" ? handleSignIn : handleSignUp}
                   disabled={loading}

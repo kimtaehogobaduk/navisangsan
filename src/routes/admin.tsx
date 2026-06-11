@@ -11,6 +11,9 @@ import {
   Users,
   Brain,
   LogOut,
+  ChevronDown,
+  ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { TRAINING_CATEGORIES, type TrainingDoc } from "@/lib/training";
 import {
@@ -22,13 +25,16 @@ import {
   cancelTrainingJobFn,
   deleteTrainingJobFn,
 } from "@/lib/training-jobs.functions";
+import { listAllUsersFn, getUserActivityDetailFn } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({ meta: [{ title: "관리자 패널 — NAVI" }] }),
   component: AdminPage,
 });
 
-type AdminTab = "training" | "youtube" | "stats";
+const ADMIN_PASSCODE = "sangsanadmin";
+
+type AdminTab = "training" | "youtube" | "members" | "stats";
 
 function AdminPage() {
   const navigate = useNavigate();
@@ -149,7 +155,7 @@ function AdminPage() {
         </div>
 
         <div className="mb-6 flex gap-2 flex-wrap">
-          {(["training", "youtube", "stats"] as AdminTab[]).map((t) => (
+          {(["training", "youtube", "members", "stats"] as AdminTab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -169,6 +175,11 @@ function AdminPage() {
                   <BookOpen className="h-4 w-4" />
                   유튜브 일괄 학습
                 </>
+              ) : t === "members" ? (
+                <>
+                  <Users className="h-4 w-4" />
+                  회원 관리
+                </>
               ) : (
                 <>
                   <Users className="h-4 w-4" />
@@ -180,6 +191,7 @@ function AdminPage() {
         </div>
 
         {tab === "youtube" && <YoutubeTab />}
+        {tab === "members" && <MembersTab />}
 
         {tab === "training" && (
           <div className="space-y-6">
@@ -530,6 +542,211 @@ function YoutubeTab() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+type MemberRow = {
+  id: string;
+  email: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+  email_confirmed_at: string | null;
+  activity_count: number;
+  last_active_at: string | null;
+  activity_keys: string[];
+};
+
+function MembersTab() {
+  const [users, setUsers] = useState<MemberRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Record<string, { key: string; value: unknown; updated_at: string }[]>>({});
+  const [detailLoading, setDetailLoading] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+
+  async function load() {
+    setLoading(true);
+    setErr("");
+    try {
+      const r = await listAllUsersFn({ data: { passcode: ADMIN_PASSCODE } });
+      const sorted = [...r.users].sort((a, b) => {
+        const ta = a.last_active_at ?? a.last_sign_in_at ?? a.created_at;
+        const tb = b.last_active_at ?? b.last_sign_in_at ?? b.created_at;
+        return new Date(tb).getTime() - new Date(ta).getTime();
+      });
+      setUsers(sorted);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "회원 목록을 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function toggleDetail(userId: string) {
+    if (expanded === userId) {
+      setExpanded(null);
+      return;
+    }
+    setExpanded(userId);
+    if (detail[userId]) return;
+    setDetailLoading(userId);
+    try {
+      const r = await getUserActivityDetailFn({ data: { passcode: ADMIN_PASSCODE, userId } });
+      setDetail((d) => ({ ...d, [userId]: r.rows }));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDetailLoading(null);
+    }
+  }
+
+  const filtered = q
+    ? users.filter((u) => u.email.toLowerCase().includes(q.toLowerCase()))
+    : users;
+
+  const fmtDate = (s: string | null) =>
+    s ? new Date(s).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" }) : "—";
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-border bg-surface p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-base font-bold">
+              <Users className="h-5 w-5 text-amber-400" />
+              회원 목록 ({filtered.length})
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              모든 가입 회원과 활동 기록을 확인할 수 있어요. 행을 클릭하면 세부 내역이 펼쳐집니다.
+            </p>
+          </div>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="rounded-xl border border-border px-3 py-2 text-xs text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "새로고침"}
+          </button>
+        </div>
+
+        <div className="mt-4">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="이메일로 검색…"
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-amber-400"
+          />
+        </div>
+
+        {err && (
+          <div className="mt-3 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive-foreground">
+            {err}
+          </div>
+        )}
+      </div>
+
+      {loading && !users.length ? (
+        <div className="grid place-items-center py-10">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : !filtered.length ? (
+        <div className="rounded-2xl border border-dashed border-border bg-surface/50 p-10 text-center text-sm text-muted-foreground">
+          회원이 없습니다.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((u) => {
+            const isOpen = expanded === u.id;
+            const rows = detail[u.id] ?? [];
+            return (
+              <div key={u.id} className="rounded-2xl border border-border bg-surface">
+                <button
+                  onClick={() => toggleDetail(u.id)}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-surface-elevated"
+                >
+                  {isOpen ? (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-sm font-semibold">{u.email || "(이메일 없음)"}</span>
+                      {!u.email_confirmed_at && (
+                        <span className="rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-400">
+                          미인증
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                      <span>가입: {fmtDate(u.created_at)}</span>
+                      <span>마지막 로그인: {fmtDate(u.last_sign_in_at)}</span>
+                      <span>마지막 활동: {fmtDate(u.last_active_at)}</span>
+                    </div>
+                  </div>
+                  <div className="shrink-0 rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-400">
+                    활동 {u.activity_count}건
+                  </div>
+                </button>
+
+                {isOpen && (
+                  <div className="border-t border-border px-4 py-3">
+                    {detailLoading === u.id ? (
+                      <div className="grid place-items-center py-4">
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      </div>
+                    ) : !rows.length ? (
+                      <p className="py-2 text-xs text-muted-foreground">아직 저장된 활동이 없습니다.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <div className="text-[11px] text-muted-foreground">
+                          저장 항목: {u.activity_keys.join(", ") || "—"}
+                        </div>
+                        <div className="overflow-hidden rounded-xl border border-border">
+                          <table className="w-full text-xs">
+                            <thead className="bg-background/50 text-muted-foreground">
+                              <tr>
+                                <th className="px-3 py-1.5 text-left font-medium">항목</th>
+                                <th className="px-3 py-1.5 text-left font-medium">업데이트</th>
+                                <th className="px-3 py-1.5 text-left font-medium">미리보기</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((r, i) => {
+                                const preview = (() => {
+                                  try {
+                                    const s = typeof r.value === "string" ? r.value : JSON.stringify(r.value);
+                                    return s.length > 80 ? s.slice(0, 80) + "…" : s;
+                                  } catch {
+                                    return "—";
+                                  }
+                                })();
+                                return (
+                                  <tr key={`${r.key}-${i}`} className="border-t border-border">
+                                    <td className="px-3 py-1.5 font-mono text-[11px]">{r.key}</td>
+                                    <td className="px-3 py-1.5 text-muted-foreground">{fmtDate(r.updated_at)}</td>
+                                    <td className="px-3 py-1.5 text-muted-foreground/80">{preview}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

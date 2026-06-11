@@ -665,6 +665,7 @@ function Onboarding() {
 
           {step < totalSteps - 1 ? (
             <button
+              key="next-btn"
               type="button"
               onClick={nextStep}
               disabled={step === 0 && !p.name.trim()}
@@ -675,6 +676,7 @@ function Onboarding() {
             </button>
           ) : (
             <button
+              key="submit-btn"
               type="submit"
               className="ml-auto inline-flex items-center gap-2 rounded-2xl bg-gradient-brand px-6 py-3 text-sm font-semibold text-brand-foreground shadow-glow transition hover:scale-[1.01]"
             >

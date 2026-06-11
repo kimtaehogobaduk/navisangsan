@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   loadProfile, saveProfile,
   type StudentProfile, type MockSubjectGrades, type InternalYearRecord,
@@ -134,6 +134,8 @@ function Onboarding() {
   const [customInterestInput, setCustomInterestInput] = useState("");
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
   const [requiredFrom, setRequiredFrom] = useState<string | null>(null);
+  // 마지막 스텝 진입 직후 유령 클릭(더블클릭/탭 잔여 이벤트)으로 인한 즉시 제출 방지
+  const lastStepEnteredAtRef = useRef<number>(0);
 
   const isHighSchool = HIGH_GRADES.includes(p.grade);
   const internalYearsAvailable = INTERNAL_YEARS_MAP[p.grade] ?? [];
@@ -256,6 +258,8 @@ function Onboarding() {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    // 마지막 스텝에 진입한 지 800ms 이내의 제출은 무시 (다음 버튼 → 제출 버튼 교체 직후 유령 클릭 방지)
+    if (Date.now() - lastStepEnteredAtRef.current < 800) return;
     const profile = { ...p, customInterest: customInterestInput.trim() };
     saveProfile(profile);
     clearRoadmap();
@@ -267,7 +271,11 @@ function Onboarding() {
 
   function nextStep() {
     saveProfile({ ...p, customInterest: customInterestInput });
-    setStep((s) => Math.min(s + 1, totalSteps - 1));
+    setStep((s) => {
+      const next = Math.min(s + 1, totalSteps - 1);
+      if (next === totalSteps - 1) lastStepEnteredAtRef.current = Date.now();
+      return next;
+    });
   }
 
   function prevStep() {

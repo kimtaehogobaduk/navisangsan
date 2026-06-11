@@ -155,7 +155,7 @@ function AdminPage() {
         </div>
 
         <div className="mb-6 flex gap-2 flex-wrap">
-          {(["training", "youtube", "stats"] as AdminTab[]).map((t) => (
+          {(["training", "youtube", "members", "stats"] as AdminTab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -175,6 +175,11 @@ function AdminPage() {
                   <BookOpen className="h-4 w-4" />
                   유튜브 일괄 학습
                 </>
+              ) : t === "members" ? (
+                <>
+                  <Users className="h-4 w-4" />
+                  회원 관리
+                </>
               ) : (
                 <>
                   <Users className="h-4 w-4" />
@@ -186,6 +191,7 @@ function AdminPage() {
         </div>
 
         {tab === "youtube" && <YoutubeTab />}
+        {tab === "members" && <MembersTab />}
 
         {tab === "training" && (
           <div className="space-y-6">

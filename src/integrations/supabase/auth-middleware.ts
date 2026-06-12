@@ -1,5 +1,6 @@
 import { createMiddleware } from "@tanstack/react-start";
-import { getHeaders } from "@tanstack/react-start/server";
+import { getRequestHeaders } from "@tanstack/react-start/server";
+
 
 const hasSupabase = !!(
   process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY

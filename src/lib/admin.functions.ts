@@ -81,6 +81,24 @@ export const getUserActivityDetailFn = createServerFn({ method: "POST" })
     }
   });
 
+export const checkSupabaseStatusFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { passcode: string }) => d)
+  .handler(async ({ data }) => {
+    if (data.passcode !== ADMIN_PASSCODE) throw new Error("관리자 인증 실패");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const tables = ["training_docs", "training_jobs", "school_research", "admissions_info", "user_data"] as const;
+    const results: Record<string, { exists: boolean; count?: number }> = {};
+    for (const table of tables) {
+      const { count, error } = await supabaseAdmin.from(table).select("*", { count: "exact", head: true });
+      if (error) {
+        results[table] = { exists: false };
+      } else {
+        results[table] = { exists: true, count: count ?? 0 };
+      }
+    }
+    return { tables: results };
+  });
+
 export const triggerAutoCollectFn = createServerFn({ method: "POST" })
   .inputValidator((d: { passcode: string }) => d)
   .handler(async ({ data }) => {

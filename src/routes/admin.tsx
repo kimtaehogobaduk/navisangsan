@@ -35,7 +35,7 @@ import {
   ingestPdfFn,
   ingestImageFn,
 } from "@/lib/training-jobs.functions";
-import { listAllUsersFn, getUserActivityDetailFn, triggerAutoCollectFn, triggerAdmissionsRefreshFn } from "@/lib/admin.functions";
+import { listAllUsersFn, getUserActivityDetailFn, triggerAutoCollectFn, triggerAdmissionsRefreshFn, checkSupabaseStatusFn } from "@/lib/admin.functions";
 import { ingestTextFileFn, clearFailedJobsFn } from "@/lib/training-jobs.functions";
 
 export const Route = createFileRoute("/admin")({
@@ -44,6 +44,105 @@ export const Route = createFileRoute("/admin")({
 });
 
 const ADMIN_PASSCODE = "sangsanadmin";
+
+const MIGRATION_SQL = `-- ① admissions_info
+CREATE TABLE IF NOT EXISTS public.admissions_info (
+  id BIGSERIAL PRIMARY KEY,
+  topic_key VARCHAR(255) UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  bullets JSONB DEFAULT '[]'::jsonb,
+  target_grade VARCHAR(50) NOT NULL DEFAULT '공통',
+  universities JSONB DEFAULT '[]'::jsonb,
+  info_type VARCHAR(100) NOT NULL DEFAULT '입시정보',
+  importance INTEGER DEFAULT 3,
+  fetched_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+GRANT SELECT ON public.admissions_info TO anon, authenticated;
+GRANT ALL ON public.admissions_info TO service_role;
+ALTER TABLE public.admissions_info ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "Public read admissions_info" ON public.admissions_info FOR SELECT USING (true);
+
+-- ② user_data
+CREATE TABLE IF NOT EXISTS public.user_data (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  key text NOT NULL,
+  value jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, key)
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_data TO authenticated;
+GRANT ALL ON public.user_data TO service_role;
+ALTER TABLE public.user_data ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "Users manage own data" ON public.user_data FOR ALL TO authenticated
+  USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+
+CREATE OR REPLACE FUNCTION public.user_data_touch_updated_at()
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
+
+CREATE TRIGGER user_data_set_updated_at BEFORE UPDATE ON public.user_data
+  FOR EACH ROW EXECUTE FUNCTION public.user_data_touch_updated_at();
+
+-- ③ school_research
+CREATE TABLE IF NOT EXISTS public.school_research (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_key text NOT NULL UNIQUE,
+  school_name text NOT NULL,
+  region text,
+  data jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.school_research TO authenticated, anon;
+GRANT ALL ON public.school_research TO service_role;
+ALTER TABLE public.school_research ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "public read school research" ON public.school_research FOR SELECT USING (true);
+
+-- ④ training_docs
+CREATE TABLE IF NOT EXISTS public.training_docs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  category text NOT NULL,
+  title text NOT NULL,
+  content text NOT NULL,
+  source_type text NOT NULL DEFAULT 'manual',
+  source_url text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT SELECT ON public.training_docs TO authenticated, anon;
+GRANT ALL ON public.training_docs TO service_role;
+ALTER TABLE public.training_docs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "public read training docs" ON public.training_docs FOR SELECT USING (true);
+
+-- ⑤ training_jobs
+CREATE TABLE IF NOT EXISTS public.training_jobs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_type text NOT NULL DEFAULT 'youtube',
+  url text NOT NULL,
+  category text NOT NULL DEFAULT '기타',
+  status text NOT NULL DEFAULT 'pending',
+  error text,
+  doc_id uuid REFERENCES public.training_docs(id) ON DELETE SET NULL,
+  attempts int NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  processed_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS training_jobs_status_idx ON public.training_jobs(status, created_at);
+GRANT SELECT ON public.training_jobs TO authenticated, anon;
+GRANT ALL ON public.training_jobs TO service_role;
+ALTER TABLE public.training_jobs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "public read training jobs" ON public.training_jobs FOR SELECT USING (true);
+
+-- triggers
+CREATE TRIGGER school_research_touch BEFORE UPDATE ON public.school_research
+  FOR EACH ROW EXECUTE FUNCTION public.user_data_touch_updated_at();
+CREATE TRIGGER training_docs_touch BEFORE UPDATE ON public.training_docs
+  FOR EACH ROW EXECUTE FUNCTION public.user_data_touch_updated_at();
+CREATE TRIGGER training_jobs_touch BEFORE UPDATE ON public.training_jobs
+  FOR EACH ROW EXECUTE FUNCTION public.user_data_touch_updated_at();`;
 
 type AdminTab = "training" | "youtube" | "members" | "stats" | "autocollect";
 type InputMode = "text" | "url" | "pdf" | "image" | "file";
@@ -83,6 +182,8 @@ function AdminPage() {
   const [fileMsg, setFileMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   const [ingestCategory, setIngestCategory] = useState(TRAINING_CATEGORIES[0]);
+  const [dbStatus, setDbStatus] = useState<Record<string, { exists: boolean; count?: number }> | null>(null);
+  const [showMigrationSql, setShowMigrationSql] = useState(false);
 
   async function refreshDocs() {
     try {
@@ -107,6 +208,9 @@ function AdminPage() {
       return;
     }
     void refreshDocs();
+    checkSupabaseStatusFn({ data: { passcode: ADMIN_PASSCODE } })
+      .then((r) => setDbStatus(r.tables))
+      .catch(() => setDbStatus(null));
   }, [navigate]);
 
   function logout() {
@@ -270,6 +374,56 @@ function AdminPage() {
       </header>
 
       <main className="mx-auto max-w-4xl px-5 py-6">
+        {dbStatus && Object.values(dbStatus).some((t) => !t.exists) && (
+          <div className="mb-6 rounded-2xl border border-red-500/40 bg-red-500/10 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <p className="font-semibold text-red-300 text-sm">⚠️ Supabase 테이블 미생성 — 학습 데이터가 AI에 반영되지 않습니다</p>
+                <p className="mt-1 text-xs text-red-300/70">
+                  아래 테이블이 Supabase에 없습니다:{" "}
+                  {Object.entries(dbStatus).filter(([, v]) => !v.exists).map(([k]) => <code key={k} className="mx-0.5 rounded bg-red-500/20 px-1">{k}</code>)}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  <strong className="text-foreground">해결 방법:</strong> Supabase 대시보드 → SQL Editor에서 아래 SQL을 실행하세요.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowMigrationSql((v) => !v)}
+                className="shrink-0 rounded-lg border border-red-500/30 bg-red-500/20 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/30"
+              >
+                {showMigrationSql ? "SQL 숨기기" : "SQL 보기"}
+              </button>
+            </div>
+            {showMigrationSql && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-muted-foreground">Supabase SQL Editor에 붙여넣기</span>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(MIGRATION_SQL)}
+                    className="text-xs text-blue-400 hover:text-blue-300"
+                  >복사</button>
+                </div>
+                <pre className="max-h-64 overflow-auto rounded-lg bg-black/40 p-3 text-[10px] text-green-300 font-mono leading-relaxed">
+                  {MIGRATION_SQL}
+                </pre>
+              </div>
+            )}
+            <div className="mt-3 grid grid-cols-5 gap-2 text-xs">
+              {Object.entries(dbStatus).map(([table, info]) => (
+                <div key={table} className={`rounded-lg p-2 text-center ${info.exists ? "bg-green-500/10 text-green-300" : "bg-red-500/10 text-red-300"}`}>
+                  <div className="font-mono text-[10px]">{table}</div>
+                  <div className="mt-0.5">{info.exists ? `✓ ${info.count ?? 0}건` : "✗ 없음"}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {dbStatus && Object.values(dbStatus).every((t) => t.exists) && (
+          <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-2 text-xs text-green-300">
+            ✓ Supabase 연결 정상 — 학습 자료가 AI에 반영됩니다 (training_docs: {dbStatus["training_docs"]?.count ?? 0}건)
+          </div>
+        )}
+
         <div className="mb-6 flex items-center gap-3">
           <div className="flex-1">
             <h1 className="text-xl font-bold">관리자 패널</h1>

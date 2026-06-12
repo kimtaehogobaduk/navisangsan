@@ -6,7 +6,6 @@ import { RoadmapView } from "@/components/RoadmapView";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
 import { markProfileRequired } from "@/lib/require-profile";
 import { loadRoadmap, saveRoadmap, loadDone, saveDone, type RoadmapData } from "@/lib/roadmap";
-import { getTrainingContext } from "@/lib/training";
 import { generateRoadmap } from "@/lib/ai.functions";
 import {
   FileText, MessageCircle, Sparkles, Target, RefreshCw, Loader2,
@@ -54,10 +53,9 @@ function Dashboard() {
     setLoadingStep(0);
     setError(null);
     try {
-      const trainingContext = getTrainingContext();
       const t1 = setTimeout(() => setLoadingStep(1), 3000);
       const t2 = setTimeout(() => setLoadingStep(2), 6000);
-      const res = await genRoadmap({ data: { profile, trainingContext } });
+      const res = await genRoadmap({ data: { profile } });
       clearTimeout(t1); clearTimeout(t2);
       if (res?.roadmap?.months?.length) {
         setRoadmap(res.roadmap);

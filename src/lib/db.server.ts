@@ -1,110 +1,41 @@
-import pg from "pg";
+// Lightweight DB helpers backed by Supabase (Lovable Cloud).
+// The legacy `pg` direct-Pool path was removed because Lovable Cloud already
+// exposes Supabase, and the required tables are provisioned via migrations.
 
-const { Pool } = pg;
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-let _pool: pg.Pool | null = null;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-export function getPool(): pg.Pool {
-  if (!_pool) {
-    _pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.DATABASE_URL?.includes("localhost") ? false : { rejectUnauthorized: false },
+let _admin: SupabaseClient | null = null;
+function admin(): SupabaseClient {
+  if (!_admin) {
+    if (!SUPABASE_URL || !SERVICE_KEY) {
+      throw new Error("Supabase 환경변수가 설정되지 않았습니다.");
+    }
+    _admin = createClient(SUPABASE_URL, SERVICE_KEY, {
+      auth: { autoRefreshToken: false, persistSession: false },
     });
   }
-  return _pool;
+  return _admin;
 }
 
-export async function query<T = Record<string, unknown>>(
-  sql: string,
-  params?: unknown[],
-): Promise<T[]> {
-  const pool = getPool();
-  const res = await pool.query(sql, params);
-  return res.rows as T[];
+/** Legacy stub — pg Pool is no longer used. Kept to satisfy old imports. */
+export function getPool(): never {
+  throw new Error("getPool()은 더 이상 지원되지 않습니다. supabaseAdmin을 사용하세요.");
 }
 
-export async function queryOne<T = Record<string, unknown>>(
-  sql: string,
-  params?: unknown[],
-): Promise<T | null> {
-  const rows = await query<T>(sql, params);
-  return rows[0] ?? null;
+export async function query<T = Record<string, unknown>>(): Promise<T[]> {
+  throw new Error("query()는 더 이상 지원되지 않습니다. supabaseAdmin을 사용하세요.");
 }
 
-export async function initDb() {
-  const pool = getPool();
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS admissions_info (
-      id BIGSERIAL PRIMARY KEY,
-      topic_key VARCHAR(255) UNIQUE NOT NULL,
-      title TEXT NOT NULL,
-      summary TEXT NOT NULL,
-      bullets JSONB DEFAULT '[]'::jsonb,
-      target_grade VARCHAR(50) NOT NULL DEFAULT '공통',
-      universities JSONB DEFAULT '[]'::jsonb,
-      info_type VARCHAR(100) NOT NULL DEFAULT '입시정보',
-      importance INTEGER DEFAULT 3,
-      fetched_at TIMESTAMPTZ DEFAULT NOW(),
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
+export async function queryOne<T = Record<string, unknown>>(): Promise<T | null> {
+  throw new Error("queryOne()은 더 이상 지원되지 않습니다. supabaseAdmin을 사용하세요.");
+}
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS user_data (
-      user_id TEXT NOT NULL,
-      key TEXT NOT NULL,
-      value JSONB NOT NULL,
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      PRIMARY KEY (user_id, key)
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS school_research (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      school_key TEXT NOT NULL UNIQUE,
-      school_name TEXT NOT NULL,
-      region TEXT,
-      data JSONB NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS training_docs (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      category TEXT NOT NULL,
-      title TEXT NOT NULL,
-      content TEXT NOT NULL,
-      source_type TEXT NOT NULL DEFAULT 'manual',
-      source_url TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    )
-  `);
-
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS training_jobs (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-      job_type TEXT NOT NULL DEFAULT 'youtube',
-      url TEXT NOT NULL,
-      category TEXT NOT NULL DEFAULT '기타',
-      status TEXT NOT NULL DEFAULT 'pending',
-      error TEXT,
-      doc_id UUID REFERENCES training_docs(id) ON DELETE SET NULL,
-      attempts INT NOT NULL DEFAULT 0,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      processed_at TIMESTAMPTZ
-    )
-  `);
-
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS training_jobs_status_idx ON training_jobs(status, created_at)
-  `);
-
-  console.log("[DB] Tables initialized");
+/** Tables are created via Supabase migrations — initDb is now a no-op. */
+export async function initDb(): Promise<void> {
+  // intentionally empty
 }
 
 export type AdmissionsRow = {
@@ -132,46 +63,42 @@ export async function upsertAdmissionsInfo(
     info_type: string;
     importance: number;
   }[],
-) {
+): Promise<void> {
   if (!items.length) return;
-  const pool = getPool();
-  for (const i of items) {
-    await pool.query(
-      `INSERT INTO admissions_info (topic_key, title, summary, bullets, target_grade, universities, info_type, importance, fetched_at)
-       VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, $7, $8, NOW())
-       ON CONFLICT (topic_key) DO UPDATE SET
-         title = EXCLUDED.title,
-         summary = EXCLUDED.summary,
-         bullets = EXCLUDED.bullets,
-         target_grade = EXCLUDED.target_grade,
-         universities = EXCLUDED.universities,
-         info_type = EXCLUDED.info_type,
-         importance = EXCLUDED.importance,
-         fetched_at = NOW()`,
-      [
-        i.topic_key,
-        i.title,
-        i.summary,
-        JSON.stringify(i.bullets),
-        i.target_grade,
-        JSON.stringify(i.universities),
-        i.info_type,
-        i.importance,
-      ],
-    );
-  }
+  const rows = items.map((i) => ({
+    topic_key: i.topic_key,
+    title: i.title,
+    summary: i.summary,
+    bullets: i.bullets,
+    target_grade: i.target_grade,
+    universities: i.universities,
+    info_type: i.info_type,
+    importance: i.importance,
+    fetched_at: new Date().toISOString(),
+  }));
+  const { error } = await admin()
+    .from("admissions_info")
+    .upsert(rows, { onConflict: "topic_key" });
+  if (error) throw new Error(`upsertAdmissionsInfo: ${error.message}`);
 }
 
 export async function getAllAdmissionsInfo(): Promise<AdmissionsRow[]> {
-  const rows = await query<AdmissionsRow>(
-    `SELECT * FROM admissions_info ORDER BY importance DESC, fetched_at DESC`,
-  );
-  return rows;
+  const { data, error } = await admin()
+    .from("admissions_info")
+    .select("*")
+    .order("importance", { ascending: false })
+    .order("fetched_at", { ascending: false });
+  if (error) throw new Error(`getAllAdmissionsInfo: ${error.message}`);
+  return (data ?? []) as AdmissionsRow[];
 }
 
 export async function getLastFetchedAt(): Promise<Date | null> {
-  const row = await queryOne<{ fetched_at: string }>(
-    `SELECT fetched_at FROM admissions_info ORDER BY fetched_at DESC LIMIT 1`,
-  );
-  return row ? new Date(row.fetched_at) : null;
+  const { data, error } = await admin()
+    .from("admissions_info")
+    .select("fetched_at")
+    .order("fetched_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return data?.fetched_at ? new Date(data.fetched_at as string) : null;
 }

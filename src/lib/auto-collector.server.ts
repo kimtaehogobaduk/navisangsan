@@ -167,12 +167,12 @@ export async function startAutoCollector(): Promise<void> {
     runCollection().catch(console.error);
   }, 30_000);
 
-  // 이후 6시간마다 자동 갱신
+  // 이후 1분마다 자동 갱신
   collectionTimer = setInterval(() => {
     runCollection().catch(console.error);
-  }, 6 * 60 * 60 * 1000);
+  }, 60_000);
 
-  console.log("[AutoCollector] 자동 수집기 등록됨 (6시간 주기)");
+  console.log("[AutoCollector] 자동 수집기 등록됨 (1분 주기)");
 }
 
 export async function triggerManualCollection(): Promise<{ ok: boolean; message: string }> {

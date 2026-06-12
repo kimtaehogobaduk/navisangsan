@@ -11,10 +11,8 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
     let claims: Record<string, unknown> = {};
 
     if (hasSupabase) {
-      const headers = getRequestHeaders();
-      const authHeader =
-        (headers as Record<string, string | undefined>)["authorization"] ??
-        (headers as Record<string, string | undefined>)["Authorization"];
+      const headers = getRequestHeaders() as unknown as Record<string, string | undefined>;
+      const authHeader = headers["authorization"] ?? headers["Authorization"];
       const token = authHeader?.replace(/^Bearer\s+/i, "");
 
       if (token) {

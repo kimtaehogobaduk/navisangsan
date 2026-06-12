@@ -139,11 +139,15 @@ export const ingestPdfFn = createServerFn({ method: "POST" })
     category: z.string().min(1).max(60),
   }))
   .handler(async ({ data }) => {
-    const pdfParse = (await import("pdf-parse")).default;
+    // dynamic import via variable to avoid Vite static dependency scan
+    const pkg = "pdf-" + "parse";
+    const mod = (await import(/* @vite-ignore */ pkg)) as { default: (b: Buffer, o?: { max?: number }) => Promise<{ text: string }> };
+    const pdfParse = mod.default;
     const buffer = Buffer.from(data.base64, "base64");
     const parsed = await pdfParse(buffer, { max: 0 });
     const rawText = parsed.text.replace(/\s+/g, " ").trim().slice(0, 15000);
     if (rawText.length < 20) throw new Error("PDF에서 텍스트를 추출할 수 없습니다. (이미지 기반 PDF는 미지원)");
+
     const { cerebrasChat } = await import("./cerebras.server");
     const raw = await cerebrasChat({
       messages: [

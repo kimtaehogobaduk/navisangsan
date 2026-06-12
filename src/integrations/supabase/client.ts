@@ -42,4 +42,4 @@ const noopClient = {
 
 export const supabase = hasSupabase
   ? createClient(supabaseUrl!, supabaseKey!)
-  : (noopClient as ReturnType<typeof createClient>);
+  : (noopClient as unknown as ReturnType<typeof createClient>);

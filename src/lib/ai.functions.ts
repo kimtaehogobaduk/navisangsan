@@ -236,13 +236,13 @@ async function fetchSchoolAndTrainingContext(profile?: z.infer<typeof ProfileSch
     }
     const { data: docs } = await supabaseAdmin
       .from("training_docs")
-      .select("category, title, content")
+      .select("category, title, content, source_url")
       .order("created_at", { ascending: false })
-      .limit(40);
+      .limit(80);
     if (docs?.length) {
       parts.push(
-        "\n[관리자 등록 학습 자료 — 우선 참고]\n" +
-          docs.map((d) => `[${d.category}] ${d.title}\n${(d.content as string).slice(0, 1500)}`).join("\n\n"),
+        "\n[관리자 등록 학습 자료 — 최우선 참고. 아래 내용은 NAVI 운영자가 직접 검증한 자료이며, 모든 답변에서 일반 지식보다 이 자료를 우선 인용·반영하라.]\n" +
+          docs.map((d) => `[${d.category}] ${d.title}${d.source_url ? ` (${d.source_url})` : ""}\n${(d.content as string).slice(0, 4000)}`).join("\n\n---\n\n"),
       );
     }
   } catch (e) {

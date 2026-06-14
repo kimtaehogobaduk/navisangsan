@@ -90,7 +90,9 @@ export const checkSupabaseStatusFn = createServerFn({ method: "POST" })
     const results: Record<string, { exists: boolean; count?: number }> = {};
     for (const table of tables) {
       // head:true 는 없는 테이블도 에러를 안 내는 버그가 있음 → 실제 SELECT로 감지
-      const { error: selErr } = await supabaseAdmin.from(table).select("id").limit(1);
+      // user_data는 PK가 (user_id, key) 복합키라 id 컬럼이 없으므로 * 사용
+      const col = table === "user_data" ? "user_id" : "id";
+      const { error: selErr } = await supabaseAdmin.from(table).select(col).limit(1);
       const missing =
         selErr &&
         (selErr.message.includes("does not exist") ||

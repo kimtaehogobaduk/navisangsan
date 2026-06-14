@@ -660,7 +660,8 @@ ${TONE_RULES}
 - [ ] 항목 3`,
       };
 
-      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n위 학생에게 맞는 내용을 추천해줘.`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}${ctx}\n\n위 학생에게 맞는 내용을 추천해줘. 관리자 등록 학습 자료에 관련 내용이 있다면 반드시 그것을 우선 인용·반영하라.`;
 
       const reply = await cerebrasChat({
         messages: [

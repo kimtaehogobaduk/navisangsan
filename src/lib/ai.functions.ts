@@ -241,10 +241,19 @@ async function fetchSchoolAndTrainingContext(profile?: z.infer<typeof ProfileSch
       .limit(80);
     if (docs?.length) {
       parts.push(
-        "\n[관리자 등록 학습 자료 — 최우선 참고. 아래 내용은 NAVI 운영자가 직접 검증한 자료이며, 모든 답변에서 일반 지식보다 이 자료를 우선 인용·반영하라.]\n" +
-          docs.map((d) => `[${d.category}] ${d.title}${d.source_url ? ` (${d.source_url})` : ""}\n${(d.content as string).slice(0, 4000)}`).join("\n\n---\n\n"),
+        `\n========================================\n` +
+        `[🔴 절대 규칙 — 관리자 등록 학습 자료 (${docs.length}건)]\n` +
+        `========================================\n` +
+        `다음은 NAVI 운영자가 직접 검증·등록한 자료다.\n` +
+        `1. 모든 답변은 반드시 이 자료를 **최우선**으로 참고하라.\n` +
+        `2. 너의 사전 지식(일반 LLM 학습 데이터)과 이 자료가 충돌하면 **무조건 이 자료를 따르라**.\n` +
+        `3. 이 자료에 관련 내용이 있으면 반드시 인용·반영하고, 출처(제목)를 명시하라.\n` +
+        `4. 일반 지식만으로 답하지 말고, 우선 이 자료를 검색·활용한 뒤 부족할 때만 일반 지식으로 보완하라.\n\n` +
+          docs.map((d, i) => `### 자료 ${i + 1} — [${d.category}] ${d.title}${d.source_url ? ` (출처: ${d.source_url})` : ""}\n${(d.content as string).slice(0, 4000)}`).join("\n\n---\n\n") +
+        `\n========================================\n[관리자 학습 자료 끝]\n========================================\n`,
       );
     }
+
   } catch (e) {
     console.warn("[ai] context load 실패", e);
   }

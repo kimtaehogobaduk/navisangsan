@@ -236,13 +236,13 @@ async function fetchSchoolAndTrainingContext(profile?: z.infer<typeof ProfileSch
     }
     const { data: docs } = await supabaseAdmin
       .from("training_docs")
-      .select("category, title, content")
+      .select("category, title, content, source_url")
       .order("created_at", { ascending: false })
-      .limit(40);
+      .limit(80);
     if (docs?.length) {
       parts.push(
-        "\n[관리자 등록 학습 자료 — 우선 참고]\n" +
-          docs.map((d) => `[${d.category}] ${d.title}\n${(d.content as string).slice(0, 1500)}`).join("\n\n"),
+        "\n[관리자 등록 학습 자료 — 최우선 참고. 아래 내용은 NAVI 운영자가 직접 검증한 자료이며, 모든 답변에서 일반 지식보다 이 자료를 우선 인용·반영하라.]\n" +
+          docs.map((d) => `[${d.category}] ${d.title}${d.source_url ? ` (${d.source_url})` : ""}\n${(d.content as string).slice(0, 4000)}`).join("\n\n---\n\n"),
       );
     }
   } catch (e) {
@@ -546,7 +546,8 @@ ${TONE_RULES}
 ---
 *고교학점제 적용 학년도에 따라 이수 가능 과목이 다를 수 있음.*`;
 
-      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n[현재 수강 중인 과목]\n${data.currentSubjects || "미입력"}\n\n위 학생에게 최적의 고교학점제 선택과목 조합을 추천해줘.`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}${ctx}\n\n[현재 수강 중인 과목]\n${data.currentSubjects || "미입력"}\n\n위 학생에게 최적의 고교학점제 선택과목 조합을 추천해줘.`;
 
       const reply = await cerebrasChat({
         messages: [
@@ -659,7 +660,8 @@ ${TONE_RULES}
 - [ ] 항목 3`,
       };
 
-      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n위 학생에게 맞는 내용을 추천해줘.`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}${ctx}\n\n위 학생에게 맞는 내용을 추천해줘. 관리자 등록 학습 자료에 관련 내용이 있다면 반드시 그것을 우선 인용·반영하라.`;
 
       const reply = await cerebrasChat({
         messages: [
@@ -730,7 +732,8 @@ ${TONE_RULES}
 - [ ] 목표 학과 연결 키워드 포함
 - [ ] 과장·거짓 내용 없음`;
 
-      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n[지원 대학/학과]\n${data.targetUniversity || data.profile?.targetUniversity || "미입력"} ${data.profile?.targetMajor || ""}\n\n[자소서 문항]\n${data.question}\n\n[작성 내용]\n${data.essay}\n\n위 자소서를 첨삭해줘.`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}${ctx}\n\n[지원 대학/학과]\n${data.targetUniversity || data.profile?.targetUniversity || "미입력"} ${data.profile?.targetMajor || ""}\n\n[자소서 문항]\n${data.question}\n\n[작성 내용]\n${data.essay}\n\n위 자소서를 첨삭해줘.`;
 
       const reply = await cerebrasChat({
         messages: [
@@ -781,7 +784,7 @@ export const interviewChat = createServerFn({ method: "POST" })
 항상 한국어로, 실제 면접처럼 진행한다.
 
 [학생 프로필]
-${profileBlock(data.profile)}`;
+${profileBlock(data.profile)}${await fetchSchoolAndTrainingContext(data.profile)}`;
 
       const reply = await cerebrasChat({
         messages: [{ role: "system", content: system }, ...data.messages],
@@ -856,7 +859,7 @@ export const getInterviewFeedback = createServerFn({ method: "POST" })
 ${followupGuide}
 
 [학생 프로필]
-${profileBlock(data.profile)}${essaySection}`;
+${profileBlock(data.profile)}${essaySection}${await fetchSchoolAndTrainingContext(data.profile)}`;
 
       const userMsg = `[면접 질문]\n${data.question}\n\n[학생 답변]\n${data.answer}${voiceSection}`;
 
@@ -950,7 +953,7 @@ export const generateEssayInterviewQuestions = createServerFn({ method: "POST" }
 - JSON 배열만 출력: ["질문1", ..., "질문${count}"]. 정확히 ${count}개. 다른 텍스트 절대 금지.
 
 [학생 프로필]
-${profileBlock(data.profile)}`;
+${profileBlock(data.profile)}${await fetchSchoolAndTrainingContext(data.profile)}`;
 
       const raw = await cerebrasChat({
         messages: [
@@ -1004,7 +1007,7 @@ export const generateCommonInterviewQuestions = createServerFn({ method: "POST" 
 - JSON 배열만 출력: ["질문1", ..., "질문${count}"]. 정확히 ${count}개. 다른 텍스트 절대 금지.
 
 [학생 프로필]
-${profileBlock(data.profile)}`;
+${profileBlock(data.profile)}${await fetchSchoolAndTrainingContext(data.profile)}`;
 
       const raw = await cerebrasChat({
         messages: [
@@ -1084,7 +1087,8 @@ ${TONE_RULES}
 
       const completedStr = data.completedTasks?.join(", ") || "없음";
       const pendingStr = data.pendingTasks?.join(", ") || "없음";
-      const user = `[자녀 프로필]\n${profileBlock(data.profile)}\n\n[현재 진행률] ${data.progress ?? 0}%\n[완료 과제] ${completedStr}\n[미완료 과제] ${pendingStr}\n\n학부모님을 위한 주간 리포트를 작성해줘.`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[자녀 프로필]\n${profileBlock(data.profile)}${ctx}\n\n[현재 진행률] ${data.progress ?? 0}%\n[완료 과제] ${completedStr}\n[미완료 과제] ${pendingStr}\n\n학부모님을 위한 주간 리포트를 작성해줘.`;
 
       const reply = await cerebrasChat({
         messages: [

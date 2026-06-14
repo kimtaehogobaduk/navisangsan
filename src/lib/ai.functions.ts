@@ -784,7 +784,7 @@ export const interviewChat = createServerFn({ method: "POST" })
 항상 한국어로, 실제 면접처럼 진행한다.
 
 [학생 프로필]
-${profileBlock(data.profile)}`;
+${profileBlock(data.profile)}${await fetchSchoolAndTrainingContext(data.profile)}`;
 
       const reply = await cerebrasChat({
         messages: [{ role: "system", content: system }, ...data.messages],

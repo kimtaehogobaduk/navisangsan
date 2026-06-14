@@ -859,7 +859,7 @@ export const getInterviewFeedback = createServerFn({ method: "POST" })
 ${followupGuide}
 
 [학생 프로필]
-${profileBlock(data.profile)}${essaySection}`;
+${profileBlock(data.profile)}${essaySection}${await fetchSchoolAndTrainingContext(data.profile)}`;
 
       const userMsg = `[면접 질문]\n${data.question}\n\n[학생 답변]\n${data.answer}${voiceSection}`;
 

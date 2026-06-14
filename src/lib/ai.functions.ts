@@ -546,7 +546,8 @@ ${TONE_RULES}
 ---
 *고교학점제 적용 학년도에 따라 이수 가능 과목이 다를 수 있음.*`;
 
-      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n[현재 수강 중인 과목]\n${data.currentSubjects || "미입력"}\n\n위 학생에게 최적의 고교학점제 선택과목 조합을 추천해줘.`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}${ctx}\n\n[현재 수강 중인 과목]\n${data.currentSubjects || "미입력"}\n\n위 학생에게 최적의 고교학점제 선택과목 조합을 추천해줘.`;
 
       const reply = await cerebrasChat({
         messages: [

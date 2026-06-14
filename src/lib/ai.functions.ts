@@ -1087,7 +1087,8 @@ ${TONE_RULES}
 
       const completedStr = data.completedTasks?.join(", ") || "없음";
       const pendingStr = data.pendingTasks?.join(", ") || "없음";
-      const user = `[자녀 프로필]\n${profileBlock(data.profile)}\n\n[현재 진행률] ${data.progress ?? 0}%\n[완료 과제] ${completedStr}\n[미완료 과제] ${pendingStr}\n\n학부모님을 위한 주간 리포트를 작성해줘.`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[자녀 프로필]\n${profileBlock(data.profile)}${ctx}\n\n[현재 진행률] ${data.progress ?? 0}%\n[완료 과제] ${completedStr}\n[미완료 과제] ${pendingStr}\n\n학부모님을 위한 주간 리포트를 작성해줘.`;
 
       const reply = await cerebrasChat({
         messages: [

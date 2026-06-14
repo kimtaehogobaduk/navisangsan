@@ -953,7 +953,7 @@ export const generateEssayInterviewQuestions = createServerFn({ method: "POST" }
 - JSON 배열만 출력: ["질문1", ..., "질문${count}"]. 정확히 ${count}개. 다른 텍스트 절대 금지.
 
 [학생 프로필]
-${profileBlock(data.profile)}`;
+${profileBlock(data.profile)}${await fetchSchoolAndTrainingContext(data.profile)}`;
 
       const raw = await cerebrasChat({
         messages: [

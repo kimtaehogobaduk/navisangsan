@@ -732,7 +732,8 @@ ${TONE_RULES}
 - [ ] 목표 학과 연결 키워드 포함
 - [ ] 과장·거짓 내용 없음`;
 
-      const user = `[학생 프로필]\n${profileBlock(data.profile)}\n\n[지원 대학/학과]\n${data.targetUniversity || data.profile?.targetUniversity || "미입력"} ${data.profile?.targetMajor || ""}\n\n[자소서 문항]\n${data.question}\n\n[작성 내용]\n${data.essay}\n\n위 자소서를 첨삭해줘.`;
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const user = `[학생 프로필]\n${profileBlock(data.profile)}${ctx}\n\n[지원 대학/학과]\n${data.targetUniversity || data.profile?.targetUniversity || "미입력"} ${data.profile?.targetMajor || ""}\n\n[자소서 문항]\n${data.question}\n\n[작성 내용]\n${data.essay}\n\n위 자소서를 첨삭해줘.`;
 
       const reply = await cerebrasChat({
         messages: [

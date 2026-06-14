@@ -89,14 +89,144 @@ export const checkSupabaseStatusFn = createServerFn({ method: "POST" })
     const tables = ["training_docs", "training_jobs", "school_research", "admissions_info", "user_data"] as const;
     const results: Record<string, { exists: boolean; count?: number }> = {};
     for (const table of tables) {
-      const { count, error } = await supabaseAdmin.from(table).select("*", { count: "exact", head: true });
-      if (error) {
+      // head:true 는 없는 테이블도 에러를 안 내는 버그가 있음 → 실제 SELECT로 감지
+      const { error: selErr } = await supabaseAdmin.from(table).select("id").limit(1);
+      const missing =
+        selErr &&
+        (selErr.message.includes("does not exist") ||
+          selErr.message.includes("schema cache") ||
+          selErr.code === "42P01" ||
+          selErr.code === "PGRST204");
+      if (missing) {
         results[table] = { exists: false };
       } else {
+        const { count } = await supabaseAdmin.from(table).select("*", { count: "exact", head: true });
         results[table] = { exists: true, count: count ?? 0 };
       }
     }
     return { tables: results };
+  });
+
+export const runMigrationFn = createServerFn({ method: "POST" })
+  .inputValidator((d: { passcode: string }) => d)
+  .handler(async ({ data }) => {
+    if (data.passcode !== ADMIN_PASSCODE) throw new Error("관리자 인증 실패");
+
+    // Supabase Management API를 통한 DDL 실행
+    const projectRef = (process.env.SUPABASE_URL ?? "").match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
+    if (!projectRef) throw new Error("SUPABASE_URL에서 프로젝트 ref를 파악할 수 없습니다.");
+
+    const managementToken = process.env.SUPABASE_MANAGEMENT_TOKEN;
+    if (!managementToken) {
+      throw new Error(
+        "SUPABASE_MANAGEMENT_TOKEN이 설정되지 않았습니다. " +
+        "Supabase 대시보드 → Account → Access Tokens에서 토큰을 발급해 환경변수로 추가해주세요."
+      );
+    }
+
+    const SQL = `
+DO $$ BEGIN
+
+-- ① admissions_info
+CREATE TABLE IF NOT EXISTS public.admissions_info (
+  id BIGSERIAL PRIMARY KEY,
+  topic_key VARCHAR(255) UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  bullets JSONB DEFAULT '[]'::jsonb,
+  target_grade VARCHAR(50) NOT NULL DEFAULT '공통',
+  universities JSONB DEFAULT '[]'::jsonb,
+  info_type VARCHAR(100) NOT NULL DEFAULT '입시정보',
+  importance INTEGER DEFAULT 3,
+  fetched_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- ② user_data
+CREATE TABLE IF NOT EXISTS public.user_data (
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  key text NOT NULL,
+  value jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, key)
+);
+
+-- ③ school_research
+CREATE TABLE IF NOT EXISTS public.school_research (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  school_key text NOT NULL UNIQUE,
+  school_name text NOT NULL,
+  region text,
+  data jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- ④ training_docs
+CREATE TABLE IF NOT EXISTS public.training_docs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  category text NOT NULL,
+  title text NOT NULL,
+  content text NOT NULL,
+  source_type text NOT NULL DEFAULT 'manual',
+  source_url text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- ⑤ training_jobs
+CREATE TABLE IF NOT EXISTS public.training_jobs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_type text NOT NULL DEFAULT 'youtube',
+  url text NOT NULL,
+  category text NOT NULL DEFAULT '기타',
+  status text NOT NULL DEFAULT 'pending',
+  error text,
+  doc_id uuid REFERENCES public.training_docs(id) ON DELETE SET NULL,
+  attempts int NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  processed_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS training_jobs_status_idx ON public.training_jobs(status, created_at);
+
+END $$;
+
+-- Grants
+GRANT SELECT ON public.admissions_info TO anon, authenticated;
+GRANT ALL ON public.admissions_info TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.user_data TO authenticated;
+GRANT ALL ON public.user_data TO service_role;
+GRANT SELECT ON public.school_research TO authenticated, anon;
+GRANT ALL ON public.school_research TO service_role;
+GRANT SELECT ON public.training_docs TO authenticated, anon;
+GRANT ALL ON public.training_docs TO service_role;
+GRANT SELECT ON public.training_jobs TO authenticated, anon;
+GRANT ALL ON public.training_jobs TO service_role;
+
+-- RLS
+ALTER TABLE public.admissions_info ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_data ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.school_research ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.training_docs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.training_jobs ENABLE ROW LEVEL SECURITY;
+`;
+
+    const res = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/database/query`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${managementToken}`,
+      },
+      body: JSON.stringify({ query: SQL }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => "(응답 없음)");
+      throw new Error(`Management API 오류 (${res.status}): ${body.slice(0, 300)}`);
+    }
+
+    return { ok: true, message: "마이그레이션 완료! 페이지를 새로고침하세요." };
   });
 
 export const triggerAutoCollectFn = createServerFn({ method: "POST" })

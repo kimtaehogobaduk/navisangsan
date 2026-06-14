@@ -35,7 +35,7 @@ import {
   ingestPdfFn,
   ingestImageFn,
 } from "@/lib/training-jobs.functions";
-import { listAllUsersFn, getUserActivityDetailFn, triggerAutoCollectFn, triggerAdmissionsRefreshFn, checkSupabaseStatusFn } from "@/lib/admin.functions";
+import { listAllUsersFn, getUserActivityDetailFn, triggerAutoCollectFn, triggerAdmissionsRefreshFn, checkSupabaseStatusFn, runMigrationFn } from "@/lib/admin.functions";
 import { ingestTextFileFn, clearFailedJobsFn } from "@/lib/training-jobs.functions";
 
 export const Route = createFileRoute("/admin")({
@@ -184,6 +184,8 @@ function AdminPage() {
   const [ingestCategory, setIngestCategory] = useState(TRAINING_CATEGORIES[0]);
   const [dbStatus, setDbStatus] = useState<Record<string, { exists: boolean; count?: number }> | null>(null);
   const [showMigrationSql, setShowMigrationSql] = useState(false);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationResult, setMigrationResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   async function refreshDocs() {
     try {
@@ -318,6 +320,23 @@ function AdminPage() {
     } finally { setImgLoading(false); }
   }
 
+  async function handleRunMigration() {
+    setMigrating(true);
+    setMigrationResult(null);
+    try {
+      const r = await runMigrationFn({ data: { passcode: ADMIN_PASSCODE } });
+      setMigrationResult({ ok: true, message: r.message });
+      // 성공 후 상태 다시 체크
+      const status = await checkSupabaseStatusFn({ data: { passcode: ADMIN_PASSCODE } });
+      setDbStatus(status.tables);
+      await refreshDocs();
+    } catch (e) {
+      setMigrationResult({ ok: false, message: e instanceof Error ? e.message : "마이그레이션 실패" });
+    } finally {
+      setMigrating(false);
+    }
+  }
+
   async function handleIngestFile() {
     if (!fileItem) return;
     setFileLoading(true); setFileMsg(null);
@@ -380,26 +399,52 @@ function AdminPage() {
               <div className="flex-1">
                 <p className="font-semibold text-red-300 text-sm">⚠️ Supabase 테이블 미생성 — 학습 데이터가 AI에 반영되지 않습니다</p>
                 <p className="mt-1 text-xs text-red-300/70">
-                  아래 테이블이 Supabase에 없습니다:{" "}
-                  {Object.entries(dbStatus).filter(([, v]) => !v.exists).map(([k]) => <code key={k} className="mx-0.5 rounded bg-red-500/20 px-1">{k}</code>)}
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  <strong className="text-foreground">해결 방법:</strong> Supabase 대시보드 → SQL Editor에서 아래 SQL을 실행하세요.
+                  없는 테이블:{" "}
+                  {Object.entries(dbStatus).filter(([, v]) => !v.exists).map(([k]) => (
+                    <code key={k} className="mx-0.5 rounded bg-red-500/20 px-1">{k}</code>
+                  ))}
                 </p>
               </div>
-              <button
-                onClick={() => setShowMigrationSql((v) => !v)}
-                className="shrink-0 rounded-lg border border-red-500/30 bg-red-500/20 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/30"
-              >
-                {showMigrationSql ? "SQL 숨기기" : "SQL 보기"}
-              </button>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  onClick={handleRunMigration}
+                  disabled={migrating}
+                  className="rounded-lg border border-cyan-500/40 bg-cyan-500/20 px-3 py-1.5 text-xs text-cyan-300 hover:bg-cyan-500/30 disabled:opacity-50 flex items-center gap-1"
+                >
+                  {migrating ? <><Loader2 className="h-3 w-3 animate-spin" /> 초기화 중...</> : "🚀 DB 자동 초기화"}
+                </button>
+                <button
+                  onClick={() => setShowMigrationSql((v) => !v)}
+                  className="rounded-lg border border-red-500/30 bg-red-500/20 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/30"
+                >
+                  {showMigrationSql ? "SQL 숨기기" : "SQL 직접 실행"}
+                </button>
+              </div>
             </div>
+
+            {migrationResult && (
+              <div className={`mt-3 rounded-lg px-3 py-2 text-xs ${migrationResult.ok ? "bg-green-500/10 text-green-300" : "bg-orange-500/10 text-orange-300"}`}>
+                {migrationResult.ok ? "✅ " : "⚠️ "}{migrationResult.message}
+                {!migrationResult.ok && migrationResult.message.includes("SUPABASE_MANAGEMENT_TOKEN") && (
+                  <div className="mt-2 text-orange-300/70">
+                    <p>자동 초기화를 위해 Supabase Personal Access Token이 필요합니다:</p>
+                    <ol className="mt-1 list-decimal list-inside space-y-0.5">
+                      <li><a href="https://supabase.com/dashboard/account/tokens" target="_blank" rel="noreferrer" className="underline">supabase.com → Account → Access Tokens</a>에서 토큰 발급</li>
+                      <li>Replit Secrets에 <code className="bg-black/30 px-1 rounded">SUPABASE_MANAGEMENT_TOKEN</code> 이름으로 추가</li>
+                      <li>앱 재시작 후 다시 "DB 자동 초기화" 클릭</li>
+                    </ol>
+                    <p className="mt-2">또는 아래 "SQL 직접 실행" 버튼으로 수동으로 생성하세요.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {showMigrationSql && (
               <div className="mt-3">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-muted-foreground">Supabase SQL Editor에 붙여넣기</span>
+                  <span className="text-xs text-muted-foreground">Supabase 대시보드 → SQL Editor에 붙여넣기</span>
                   <button
-                    onClick={() => navigator.clipboard.writeText(MIGRATION_SQL)}
+                    onClick={() => { void navigator.clipboard.writeText(MIGRATION_SQL); }}
                     className="text-xs text-blue-400 hover:text-blue-300"
                   >복사</button>
                 </div>
@@ -408,6 +453,7 @@ function AdminPage() {
                 </pre>
               </div>
             )}
+
             <div className="mt-3 grid grid-cols-5 gap-2 text-xs">
               {Object.entries(dbStatus).map(([table, info]) => (
                 <div key={table} className={`rounded-lg p-2 text-center ${info.exists ? "bg-green-500/10 text-green-300" : "bg-red-500/10 text-red-300"}`}>
@@ -420,7 +466,7 @@ function AdminPage() {
         )}
         {dbStatus && Object.values(dbStatus).every((t) => t.exists) && (
           <div className="mb-4 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-2 text-xs text-green-300">
-            ✓ Supabase 연결 정상 — 학습 자료가 AI에 반영됩니다 (training_docs: {dbStatus["training_docs"]?.count ?? 0}건)
+            ✅ Supabase 연결 정상 — 학습 자료가 AI에 반영됩니다 (training_docs: {dbStatus["training_docs"]?.count ?? 0}건)
           </div>
         )}
 

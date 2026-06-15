@@ -4,6 +4,7 @@ import { Compass, MessageCircle, FileText, Target, Home, LogIn, ShieldCheck, Log
 import { supabase } from "@/integrations/supabase/client";
 
 const nav = [
+  { to: "/mypage", label: "마이페이지", icon: User },
   { to: "/dashboard", label: "로드맵", icon: Home },
   { to: "/coach", label: "AI 코치", icon: MessageCircle },
   { to: "/saengbu", label: "생기부", icon: FileText },
@@ -129,16 +130,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
-          {/* 마이페이지 탭 */}
-          <Link
-            to="/mypage"
-            className={`flex flex-1 flex-col items-center gap-1 py-3 text-[11px] transition ${
-              pathname === "/mypage" ? "text-brand" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <User className={`h-5 w-5 ${pathname === "/mypage" ? "drop-shadow-[0_0_8px_var(--brand)]" : ""}`} />
-            <span className="font-medium">마이페이지</span>
-          </Link>
         </div>
       </nav>
     </div>

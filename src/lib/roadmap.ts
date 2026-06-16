@@ -5,6 +5,7 @@ export type CheckItem = {
   week: 1 | 2 | 3 | 4;
   priority: "high" | "medium" | "low";
   hours: number;
+  tips?: string[];
 };
 
 export type StudyStrategy = {

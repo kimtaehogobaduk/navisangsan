@@ -42,3 +42,8 @@ externalPort = 3001
 [deployment]
 deploymentTarget = "autoscale"
 run = ["bun", "run", "dev"]
+
+[userenv]
+
+[userenv.shared]
+CEREBRAS_API_KEY = "csk-63v5cy9p2hc669pe6h35e3x9yjd6n3j8jyvpn23xpvevwk8v"

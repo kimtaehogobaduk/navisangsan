@@ -25,10 +25,12 @@ export function RoadmapView({
   data,
   done,
   onToggle,
+  studentName,
 }: {
   data: RoadmapData;
   done: Set<string>;
   onToggle: (id: string) => void;
+  studentName?: string;
 }) {
   const [activePhase, setActivePhase] = useState(0);
   const [overviewOpen, setOverviewOpen] = useState(true);
@@ -49,7 +51,9 @@ export function RoadmapView({
       title: item.text,
       detail: `${item.week}주차 · ${CATEGORY_META[item.category].label}`,
       estimatedHours: item.hours,
-      tips: [item.priority === "high" ? "이번 달 최우선 과제" : "체크리스트와 함께 진행"],
+      tips: item.tips?.length
+        ? item.tips
+        : [item.priority === "high" ? "이번 달 최우선 과제" : "체크리스트와 함께 진행"],
     })),
   } : null;
 
@@ -98,7 +102,7 @@ export function RoadmapView({
       </div>
 
       {/* ── 선택된 달 상세 ── */}
-      {mindMapMonth && <MindMap month={mindMapMonth} />}
+      {mindMapMonth && <MindMap month={mindMapMonth} studentName={studentName} />}
 
       {/* ── 선택된 달 상세 ── */}
       {month && (

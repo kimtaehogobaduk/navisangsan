@@ -228,7 +228,7 @@ function Dashboard() {
 
         {/* Roadmap content */}
         {roadmap && !loading && (
-          <RoadmapView data={roadmap} done={done} onToggle={toggleDone} />
+          <RoadmapView data={roadmap} done={done} onToggle={toggleDone} studentName={profile.name} />
         )}
       </section>
     </AppShell>

@@ -1,0 +1,28 @@
+{
+  "lint": {
+    "exclude": [
+      "src/routeTree.gen.ts",
+      "node_modules",
+      "dist",
+      ".next",
+      "build",
+      "bun.lock",
+      "package-lock.json"
+    ],
+    "rules": {
+      "tags": ["recommended"],
+      "exclude": ["no-unused-vars"]
+    }
+  },
+  "fmt": {
+    "exclude": [
+      "src/routeTree.gen.ts",
+      "node_modules",
+      "dist",
+      ".next",
+      "build",
+      "bun.lock",
+      "package-lock.json"
+    ]
+  }
+}

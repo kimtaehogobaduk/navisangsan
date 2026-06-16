@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { BookOpen, Map, PenLine, Mic, Users, ArrowRight, Newspaper } from "lucide-react";
+import { BookOpen, Map, PenLine, Mic, Users, ArrowRight, Newspaper, Brain } from "lucide-react";
 
 export const Route = createFileRoute("/more")({
   head: () => ({ meta: [{ title: "더보기 — NAVI" }] }),
@@ -8,6 +8,13 @@ export const Route = createFileRoute("/more")({
 });
 
 const FEATURES = [
+  {
+    to: "/study-methods",
+    icon: Brain,
+    title: "공부방법 제안",
+    desc: "내 성적·목표 맞춤 AI 공부법 분석 (고전 + 혁신 기법)",
+    badge: "NEW",
+  },
   {
     to: "/news",
     icon: Newspaper,

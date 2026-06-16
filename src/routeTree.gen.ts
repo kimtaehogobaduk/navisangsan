@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SubjectsRouteImport } from './routes/subjects'
+import { Route as StudyMethodsRouteImport } from './routes/study-methods'
 import { Route as SaengbuRouteImport } from './routes/saengbu'
 import { Route as ParentRouteImport } from './routes/parent'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
@@ -31,6 +32,11 @@ import { Route as ApiPublicAdmissionsRefreshRouteImport } from './routes/api/pub
 const SubjectsRoute = SubjectsRouteImport.update({
   id: '/subjects',
   path: '/subjects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudyMethodsRoute = StudyMethodsRouteImport.update({
+  id: '/study-methods',
+  path: '/study-methods',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SaengbuRoute = SaengbuRouteImport.update({
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/parent': typeof ParentRoute
   '/saengbu': typeof SaengbuRoute
+  '/study-methods': typeof StudyMethodsRoute
   '/subjects': typeof SubjectsRoute
   '/api/public/admissions-refresh': typeof ApiPublicAdmissionsRefreshRoute
   '/api/public/process-training': typeof ApiPublicProcessTrainingRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/parent': typeof ParentRoute
   '/saengbu': typeof SaengbuRoute
+  '/study-methods': typeof StudyMethodsRoute
   '/subjects': typeof SubjectsRoute
   '/api/public/admissions-refresh': typeof ApiPublicAdmissionsRefreshRoute
   '/api/public/process-training': typeof ApiPublicProcessTrainingRoute
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/parent': typeof ParentRoute
   '/saengbu': typeof SaengbuRoute
+  '/study-methods': typeof StudyMethodsRoute
   '/subjects': typeof SubjectsRoute
   '/api/public/admissions-refresh': typeof ApiPublicAdmissionsRefreshRoute
   '/api/public/process-training': typeof ApiPublicProcessTrainingRoute
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/parent'
     | '/saengbu'
+    | '/study-methods'
     | '/subjects'
     | '/api/public/admissions-refresh'
     | '/api/public/process-training'
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/parent'
     | '/saengbu'
+    | '/study-methods'
     | '/subjects'
     | '/api/public/admissions-refresh'
     | '/api/public/process-training'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/parent'
     | '/saengbu'
+    | '/study-methods'
     | '/subjects'
     | '/api/public/admissions-refresh'
     | '/api/public/process-training'
@@ -261,6 +273,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   ParentRoute: typeof ParentRoute
   SaengbuRoute: typeof SaengbuRoute
+  StudyMethodsRoute: typeof StudyMethodsRoute
   SubjectsRoute: typeof SubjectsRoute
   ApiPublicAdmissionsRefreshRoute: typeof ApiPublicAdmissionsRefreshRoute
   ApiPublicProcessTrainingRoute: typeof ApiPublicProcessTrainingRoute
@@ -273,6 +286,13 @@ declare module '@tanstack/react-router' {
       path: '/subjects'
       fullPath: '/subjects'
       preLoaderRoute: typeof SubjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/study-methods': {
+      id: '/study-methods'
+      path: '/study-methods'
+      fullPath: '/study-methods'
+      preLoaderRoute: typeof StudyMethodsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/saengbu': {
@@ -413,6 +433,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   ParentRoute: ParentRoute,
   SaengbuRoute: SaengbuRoute,
+  StudyMethodsRoute: StudyMethodsRoute,
   SubjectsRoute: SubjectsRoute,
   ApiPublicAdmissionsRefreshRoute: ApiPublicAdmissionsRefreshRoute,
   ApiPublicProcessTrainingRoute: ApiPublicProcessTrainingRoute,

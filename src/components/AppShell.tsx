@@ -113,7 +113,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             const active =
               pathname === item.to ||
               (item.to === "/more" &&
-                ["/subjects", "/curriculum", "/jasoseo", "/interview", "/parent"].some((p) =>
+                ["/subjects", "/curriculum", "/jasoseo", "/interview", "/parent", "/study-methods"].some((p) =>
                   pathname.startsWith(p),
                 ));
             const Icon = item.icon;

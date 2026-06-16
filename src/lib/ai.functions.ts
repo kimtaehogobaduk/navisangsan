@@ -475,6 +475,9 @@ export const generateRoadmap = createServerFn({ method: "POST" })
 3. text는 "무엇을 어떻게 얼마나" 형식으로 구체적으로. 예) "수학 킬러문항 1일 3문제씩 풀기", "사설모의고사 오답노트 카테고리별 분류" 등.
 4. 취약 과목 반드시 반영, 학년·계열·목표대학 고려, 현실적 전략, 구체적 대학명 포함.
 5. category = study/exam/records/essay/activity/mental 중 하나, week = 1~4, priority = high/medium/low.
+6. [입결 분석 필수] overview.coreStrategy에 목표 대학·학과 입결 수치 반드시 포함. 예) "연세대 경제학과 학종 내신 1.5 이내·수능최저 국수영탐합5, 정시 백분위 95 이상 — 현재 수학 3등급이면 2등급 목표로 이달 킬러 집중". 수시/정시 각 전형별 현실적 가능성도 평가.
+7. [월별 등급 목표] 각 month의 studyStrategy.weakSubject에 "과목명: 현재 X등급 → 이달 목표 Y등급, 달성법 2문장" 형식으로 구체적 수치 목표 포함.
+8. [입시 캘린더] keyEvents에 해당 월 실제 수능/모의고사/대입 일정 최소 2개 이상 포함. (예: "6월 수능 모의평가", "학교 중간고사", "수시 원서접수 시작" 등 실제 일정)
 ${training}
 출력 JSON 구조 (checkItems 24개 이상, 각 항목에 tips 3개 필수):
 {"overview":{"diagnosis":"현황진단 1-2문장","strengths":["강점1","강점2","강점3"],"weaknesses":["약점1","약점2","약점3"],"coreStrategy":"핵심전략 1문장","applicationRatio":"수시OO%/정시OO%"},"months":[{"phase":"단기","monthLabel":"1개월차","theme":"#6366f1","keyEvents":["주요일정1","주요일정2","주요일정3"],"studyStrategy":{"korean":"국어전략 2문장","math":"수학전략 2문장","english":"영어전략 2문장","scienceOrSociety":"탐구/사회전략 2문장","weakSubject":"취약과목명: 보완법 2문장","weeklyHours":40},"examStrategy":{"focus":"이달 수능 핵심포인트","mockExam":"모의고사 활용전략","practiceType":"문제유형 연습방향"},"recordStrategy":{"seukuk":["세특아이디어1","세특아이디어2","세특아이디어3"],"activity":"동아리/자율활동전략","careerActivity":"진로활동전략","keyKeyword":"이달 생기부 핵심키워드"},"essayStrategy":"자소서/면접전략","mentalStrategy":"멘탈·건강관리","priorities":["🔥 긴급: 우선순위1","📚 중요: 우선순위2","✍️ 필수: 우선순위3"],"checkItems":[{"id":"m0-c0","category":"study","text":"취약과목 개념 총정리 1~3단원","week":1,"priority":"high","hours":3,"tips":["오개념 목록 따로 노트 정리","개념→예제→변형 순서 3회독","틀린 개념 다음날 아침 복습"]},{"id":"m0-c1","category":"study","text":"국어 독서 지문 유형별 분류 연습","week":1,"priority":"high","hours":2,"tips":["인문/사회/과학/기술 4유형 각 2지문","문단 요지 30초 파악 훈련","선지 배제법 속도 측정"]},{"id":"m0-c2","category":"study","text":"수학 준킬러 유형 집중 훈련","week":2,"priority":"high","hours":3,"tips":["도형·수열 우선 공략","15분 초과 시 바로 풀이 확인","풀이 과정 시각화 습관"]},{"id":"m0-c3","category":"study","text":"영어 빈칸추론·순서배열 집중","week":2,"priority":"medium","hours":2,"tips":["EBS 연계 지문 우선","역방향 독해 연습","오답 선지 오류 유형 분류"]},{"id":"m0-c4","category":"exam","text":"모의고사 목표등급 설정 및 취약단원 리스트업","week":1,"priority":"high","hours":2,"tips":["과목별 목표등급 수치 명시","작년 성적과 비교 분석","취약단원 상위 3개 선정"]},{"id":"m0-c5","category":"exam","text":"오답노트 카테고리별 재정리","week":1,"priority":"high","hours":2,"tips":["개념부족/실수/시간 3분류","카테고리별 해결전략 수립","2주 후 재풀이 일정 등록"]},{"id":"m0-c6","category":"exam","text":"수능특강 1회독 계획 수립 및 시작","week":3,"priority":"medium","hours":3,"tips":["과목별 페이지÷남은 주수로 분배","국어 독서·문학 병행","고난도 지문 형광펜 표시"]},{"id":"m0-c7","category":"exam","text":"사설 모의고사 실전 시뮬레이션 1회","week":4,"priority":"high","hours":4,"tips":["실제 수능 시간표대로 응시","탐구 과목 집중력 체크","즉시 채점 및 오답 분석"]},{"id":"m0-c8","category":"records","text":"세특 주제 3개 선정 및 탐구 계획서 작성","week":1,"priority":"high","hours":2,"tips":["전공 시사 이슈 연결","교과서→심화 탐구 구조","선생님과 사전 협의"]},{"id":"m0-c9","category":"records","text":"핵심과목 2개 세특 초안 작성","week":2,"priority":"high","hours":3,"tips":["학생 주도 행동동사로 시작","탐구과정·결과·배움 순서","500자 초안 후 확장"]},{"id":"m0-c10","category":"records","text":"진로 도서 1권 독서 후 독서록 작성","week":3,"priority":"medium","hours":3,"tips":["전공 연관 비소설 선택","경험과 연결하여 작성","생기부 연계 포인트 메모"]},{"id":"m0-c11","category":"records","text":"동아리 활동 기록 정리 및 발표자료 제작","week":4,"priority":"medium","hours":2,"tips":["날짜·역할·성과 구체화","포트폴리오화","다음달 계획 포함"]},{"id":"m0-c12","category":"essay","text":"자소서 1번 소재 발굴 및 초안 작성","week":2,"priority":"high","hours":3,"tips":["합격자 예시 3편 분석","나만의 키워드 3개 추출","두괄식 첫 문장"]},{"id":"m0-c13","category":"essay","text":"학업역량 에피소드 STAR 기법 정리","week":1,"priority":"medium","hours":2,"tips":["3년치 세특·활동 전수 검토","전공 연결 소재 선별","STAR 구조화"]},{"id":"m0-c14","category":"essay","text":"지망 대학 인재상 분석 및 전략 수립","week":3,"priority":"medium","hours":2,"tips":["최근 3개년 합격자 후기 분석","강조 키워드 추출","인재상과 경험 매핑"]},{"id":"m0-c15","category":"essay","text":"초안 첨삭 반영 및 수정","week":4,"priority":"low","hours":2,"tips":["담임 첨삭 의뢰","중복·진부 표현 제거","글자수 최적화"]},{"id":"m0-c16","category":"activity","text":"전공 연계 교외 활동 1개 신청·참여","week":1,"priority":"medium","hours":3,"tips":["대학 주최 캠프/올림피아드 확인","사전 학습 필수","소감문 즉시 작성"]},{"id":"m0-c17","category":"activity","text":"전공 연관 봉사활동 1회 참여","week":2,"priority":"low","hours":4,"tips":["1365 포털 활용","의료·교육 등 전공 연관","활동 내용 즉시 기록"]},{"id":"m0-c18","category":"activity","text":"전공 도서 1권 완독 및 독서록 작성","week":3,"priority":"medium","hours":4,"tips":["핵심 문장 밑줄+메모","생기부 세특 연계 고려","궁금한 점 3개 정리"]},{"id":"m0-c19","category":"activity","text":"교내 경시대회 1개 출전 준비·참가","week":4,"priority":"medium","hours":4,"tips":["교과 경시 우선","최근 3년 출제 경향 분석","팀 대회 역할 명확히"]},{"id":"m0-c20","category":"mental","text":"주간 학습 루틴 설계 및 정착","week":1,"priority":"high","hours":1,"tips":["기상-공부-식사-운동 4블록 설정","최적 집중시간대 파악","주말 회고 10분 루틴"]},{"id":"m0-c21","category":"mental","text":"번아웃 예방 — 주 3회 운동 루틴","week":2,"priority":"medium","hours":3,"tips":["30분 유산소 or 스트레칭","포모도로(50+10) 적용","수면 6.5~7시간 고정"]},{"id":"m0-c22","category":"mental","text":"시험 불안 관리 전략 수립·연습","week":3,"priority":"medium","hours":1,"tips":["전날 밤 가벼운 복습만","당일 아침 스트레칭+물","복식호흡 5회 연습"]},{"id":"m0-c23","category":"mental","text":"이달 목표 달성도 자기 평가","week":4,"priority":"low","hours":1,"tips":["달성/미달성 체크리스트","미달 원인 분석","다음달 우선순위 3개 재설정"]}]},{"phase":"중기","monthLabel":"2개월차","theme":"#8b5cf6","keyEvents":[...],"studyStrategy":{...},"examStrategy":{...},"recordStrategy":{...},"essayStrategy":"...","mentalStrategy":"...","priorities":["...","...","..."],"checkItems":[{"id":"m1-c0",...},...]},{"phase":"장기","monthLabel":"3개월차","theme":"#06b6d4","keyEvents":[...],"studyStrategy":{...},"examStrategy":{...},"recordStrategy":{...},"essayStrategy":"...","mentalStrategy":"...","priorities":["...","...","..."],"checkItems":[{"id":"m2-c0",...},...]}],"applicationStrategy":{"suSi":[{"type":"학생부종합","suitability":"⭐⭐⭐⭐","reason":"이유"},{"type":"학생부교과","suitability":"⭐⭐⭐","reason":"이유"},{"type":"논술","suitability":"⭐⭐","reason":"이유"},{"type":"실기/특기","suitability":"⭐","reason":"이유"}],"recommendedApps":[{"card":1,"university":"대학명","major":"학과명","type":"전형","note":"도전권"},{"card":2,"university":"대학명","major":"학과명","type":"전형","note":"도전권"},{"card":3,"university":"대학명","major":"학과명","type":"전형","note":"적정권"},{"card":4,"university":"대학명","major":"학과명","type":"전형","note":"적정권"},{"card":5,"university":"대학명","major":"학과명","type":"전형","note":"안정권"},{"card":6,"university":"대학명","major":"학과명","type":"전형","note":"안정권"}],"jungSiStrategy":"정시전략 2-3문장"}}`;
@@ -500,7 +503,7 @@ ${training}
             { role: "user", content: user },
           ],
           temperature: 0.3,
-          max_tokens: 20000,
+          max_tokens: 32000,
         });
         parsed = parseRoadmapJson(raw);
       }
@@ -1111,6 +1114,82 @@ ${TONE_RULES}
         ],
         temperature: 0.4,
         max_tokens: 4096,
+      });
+      return { reply };
+    } catch (error) {
+      normalizeAiError(error);
+    }
+  });
+
+
+// ============ 공부방법 제안 ============
+export const generateStudyMethods = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      profile: ProfileSchema.optional(),
+      chatSummary: z.string().optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { cerebrasChat } = await import("./cerebras.server");
+      const profileStr = profileBlock(data.profile);
+      const ctx = await fetchSchoolAndTrainingContext(data.profile);
+      const chatCtx = data.chatSummary
+        ? `\n[최근 AI 코치 대화 요약]\n${data.chatSummary}`
+        : "";
+
+      const system = `당신은 세계적인 학습과학 전문가이자 한국 입시 전략 코치입니다. 학생 프로필을 깊이 분석하여 그 학생에게 최적화된 공부방법을 제안합니다.
+
+[역할]
+- 단순한 일반론이 아닌, 학생의 학년/계열/취약과목/목표대학을 반영한 완전히 개인화된 공부법 제안
+- 고전적으로 검증된 학습과학 기법부터 최신 신경과학 기반 독창적 방법까지 폭넓게 커버
+- 각 방법마다 왜 이 학생에게 맞는지 근거 설명 + 즉시 실행 가능한 구체적 방법 제시
+
+[절대 규칙]
+1. 제안하는 모든 공부법은 해당 학생의 프로필에 맞게 커스터마이징. 일반론 금지.
+2. 각 방법마다 방법 설명, 이 학생에게 적합한 이유, 즉시 실행 방법(오늘 당장 할 수 있는 1단계) 포함.
+3. 고전적 방법(학습과학 검증) 5개 이상 + 독창적·혁신적 방법 5개 이상 반드시 포함.
+4. 취약 과목에 특화된 과목별 전략 섹션 필수.
+5. 마인드셋/멘탈 전략 포함.`;
+
+      const userPrompt = `[학생 프로필]
+${profileStr}${ctx}${chatCtx}
+
+위 학생을 위한 완전 개인화된 공부방법 가이드를 한국어로 작성해줘. 반드시 이 학생의 구체적인 상황(취약과목, 목표대학, 학년, 계열)을 언급하면서 제안해야 해.
+
+다음 구조로 마크다운 작성:
+
+# 📚 나만을 위한 공부법 가이드
+
+## 🧠 학습 유형 분석
+[이 학생의 현재 상황 진단 — 강점·약점·목표 대학까지의 갭 분석. 2-3문단]
+
+## ✅ 검증된 고전 학습법 (나에게 맞게 커스터마이징)
+[포모도로, 코넬 노트, 스페이스드 리피티션, SQ3R, 액티브 리콜 등 5가지 이상. 각 방법마다 이 학생 상황에 맞게 설명]
+
+## 🚀 독창적·혁신적 공부법
+[인터리빙, 듀얼 코딩, 파인만 기법, 역방향 학습, 수면 학습 최적화, 멀티모달 암기법, 시험 예상 기법 등 5가지 이상. 신경과학·학습과학 연구 기반의 최신 기법 포함]
+
+## 📖 과목별 맞춤 전략
+[취약 과목 중심으로 국어/수학/영어/탐구 각각 구체적 전략]
+
+## ⏰ 나만의 공부 루틴 설계
+[이 학생에게 최적화된 일일/주간 루틴 제안. 시간대별 과목 배치 전략 포함]
+
+## 💡 멘탈·집중력 관리
+[슬럼프 극복법, 집중력 향상 기법, 번아웃 방지 전략]
+
+## 🎯 이번 주 바로 시작할 3가지
+[지금 당장 실행 가능한 가장 중요한 것 3가지. 각각 오늘 해야 할 구체적 1단계 포함]`;
+
+      const reply = await cerebrasChat({
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.6,
+        max_tokens: 8000,
       });
       return { reply };
     } catch (error) {

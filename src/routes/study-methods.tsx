@@ -116,7 +116,7 @@ function StudyMethodsPage() {
             <div className="rounded-xl border border-border bg-background px-4 py-3 text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">{profile.name || "내"} 프로필 기반</span>
               {" — "}
-              {[profile.grade, profile.track, profile.targetUniversity && `목표: ${profile.targetUniversity}`]
+              {[profile.grade, profile.trackType, profile.targetUniversity && `목표: ${profile.targetUniversity}`]
                 .filter(Boolean).join(" · ")}
             </div>
           )}

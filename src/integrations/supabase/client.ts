@@ -8,7 +8,7 @@ const hasSupabase = !!(supabaseUrl && supabaseKey);
 
 const noopClient = {
   auth: {
-    getSession: async () => ({ data: { session: null }, error: null }),
+    getSession: () => ({ data: { session: null }, error: null }),
     onAuthStateChange: (_cb: unknown) => ({
       data: { subscription: { unsubscribe: () => {} } },
     }),
@@ -20,8 +20,8 @@ const noopClient = {
       data: null,
       error: { message: "회원가입을 사용하려면 Supabase를 연결해주세요." },
     }),
-    signOut: async () => ({ error: null }),
-    resetPasswordForEmail: async (_email: string) => ({ error: null }),
+    signOut: () => ({ error: null }),
+    resetPasswordForEmail: (_email: string) => ({ error: null }),
   },
   from: (_table: string) => ({
     select: (_cols?: string) => ({
@@ -30,7 +30,7 @@ const noopClient = {
       data: [] as unknown[],
       error: null,
     }),
-    upsert: async (_data: unknown, _opts?: unknown) => ({ error: null }),
+    upsert: (_data: unknown, _opts?: unknown) => ({ error: null }),
     delete: () => ({
       eq: (_col: string, _val: unknown) =>
         Promise.resolve({ error: null }),
@@ -38,7 +38,7 @@ const noopClient = {
   }),
 };
 
-// ─── Export ────────────────────────────────────────────────────────────────
+// ─── Export ──────────────────────────────────────────────────────────
 
 export const supabase = hasSupabase
   ? createClient(supabaseUrl!, supabaseKey!)

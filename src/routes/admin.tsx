@@ -948,7 +948,6 @@ function YoutubeTab() {
   async function submit() {
     const lines = urls.split(/\n+/).map((s) => s.trim()).filter(Boolean);
     if (!lines.length) { setMsg("유효한 URL이 없습니다."); return; }
-    if (lines.length > 10000) { setMsg("최대 10000개까지 한 번에 등록 가능합니다."); return; }
     setSubmitting(true); setMsg("");
     try {
       const r = await queueYoutubeJobsFn({ data: { urls: lines, category } });

@@ -970,6 +970,15 @@ function YoutubeTab() {
     } finally { setProcessing(false); }
   }
 
+  // 대기 작업이 있으면 자동으로 처리
+  useEffect(() => {
+    if (processing) return;
+    const pending = summary.pending ?? 0;
+    if (pending <= 0) return;
+    handleProcess();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary.pending, processing]);
+
   async function cancelJob(id: string) {
     setActingId(id);
     try {

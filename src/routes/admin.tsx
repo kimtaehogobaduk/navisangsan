@@ -948,7 +948,6 @@ function YoutubeTab() {
   async function submit() {
     const lines = urls.split(/\n+/).map((s) => s.trim()).filter(Boolean);
     if (!lines.length) { setMsg("유효한 URL이 없습니다."); return; }
-    if (lines.length > 10000) { setMsg("최대 10000개까지 한 번에 등록 가능합니다."); return; }
     setSubmitting(true); setMsg("");
     try {
       const r = await queueYoutubeJobsFn({ data: { urls: lines, category } });
@@ -970,6 +969,15 @@ function YoutubeTab() {
       setProcessMsg({ type: "err", text: e instanceof Error ? e.message : "처리 실패" });
     } finally { setProcessing(false); }
   }
+
+  // 대기 작업이 있으면 자동으로 처리
+  useEffect(() => {
+    if (processing) return;
+    const pending = summary.pending ?? 0;
+    if (pending <= 0) return;
+    handleProcess();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary.pending, processing]);
 
   async function cancelJob(id: string) {
     setActingId(id);
@@ -1024,7 +1032,7 @@ function YoutubeTab() {
               즉시 처리 <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-400">대기 {pendingCount}개</span>
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              대기 중인 영상의 자막을 가져와 AI로 요약합니다. 한 번에 최대 10개씩 처리됩니다.
+              대기 중인 영상의 자막을 가져와 AI로 요약합니다. 대기 작업이 있으면 자동으로 처리됩니다.
             </p>
             {processMsg && (
               <p className={`mt-1.5 text-xs font-medium ${processMsg.type === "ok" ? "text-emerald-400" : "text-red-400"}`}>

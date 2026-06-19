@@ -73,7 +73,7 @@ function extractTextFromHtml(html: string): string {
 export const queueYoutubeJobsFn = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
-      urls: z.array(z.string().min(1)).min(1).max(10000),
+      urls: z.array(z.string().min(1)).min(1),
       category: z.string().min(1).max(60).default("기타"),
     }),
   )
@@ -99,7 +99,7 @@ export const queueYoutubeJobsFn = createServerFn({ method: "POST" })
 
 // ─── YouTube 즉시 처리 ───
 export const processYoutubeJobsFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ limit: z.number().min(1).max(20).default(5) }))
+  .inputValidator(z.object({ limit: z.number().min(1).max(100).default(10) }))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: pendingJobs } = await supabaseAdmin
@@ -324,7 +324,7 @@ export const ingestTextFileFn = createServerFn({ method: "POST" })
 export const listTrainingJobsFn = createServerFn({ method: "GET" })
   .handler(async () => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: jobs } = await supabaseAdmin.from("training_jobs").select("id, url, status, error, category, created_at, processed_at, doc_id").order("created_at", { ascending: false }).limit(200);
+    const { data: jobs } = await supabaseAdmin.from("training_jobs").select("id, url, status, error, category, created_at, processed_at, doc_id").order("created_at", { ascending: false }).limit(10000);
     const { data: counts } = await supabaseAdmin.from("training_jobs").select("status");
     const summary = { pending: 0, processing: 0, done: 0, failed: 0 } as Record<string, number>;
     for (const r of counts ?? []) summary[r.status] = (summary[r.status] ?? 0) + 1;

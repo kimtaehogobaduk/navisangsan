@@ -127,13 +127,18 @@ export const processYoutubeJobsFn = createServerFn({ method: "POST" })
         const { cerebrasChat } = await import("./cerebras.server");
         const raw = await cerebrasChat({
           messages: [
-            { role: "system", content: `너는 한국 입시 교육 전문가다. 유튜브 자막을 분석해 핵심 입시 정보를 정리한다.\n반드시 아래 JSON 형식 하나만 출력. 다른 텍스트 없음.\n{"title":"제목(50자 이내)","content":"핵심 내용 정리(500~1500자, 불릿 포인트 포함)"}` },
+            { role: "system", content: `너는 한국 입시 교육 전문가다. 유튜브 자막을 분석한다.\n반드시 아래 두 JSON 중 하나만 출력. 다른 텍스트 없음.\n- 입시(대입/수시/정시/학종/교과/논술/면접/자소서/생기부/내신/수능/전형/대학) 관련 유의미한 정보가 있을 때: {"title":"제목(50자 이내)","content":"핵심 내용 정리(500~1500자, 불릿 포인트 포함)"}\n- 입시 관련 정보가 전혀 없거나 무관한 잡담/예능/광고/뮤직비디오 등일 때: {"skip":true,"reason":"간단한 사유"}` },
             { role: "user", content: `URL: ${job.url}\n\n자막:\n${transcriptText}` },
           ],
           temperature: 0.3, max_tokens: 2000,
         });
         const m = raw.match(/\{[\s\S]*\}/);
-        const parsed = m ? (JSON.parse(m[0]) as { title: string; content: string }) : null;
+        const parsed = m ? (JSON.parse(m[0]) as { title?: string; content?: string; skip?: boolean; reason?: string }) : null;
+        if (parsed?.skip) {
+          await supabaseAdmin.from("training_jobs").delete().eq("id", job.id);
+          processed++;
+          continue;
+        }
         const { data: doc, error: docErr } = await supabaseAdmin
           .from("training_docs")
           .insert({ category: job.category, title: parsed?.title ?? `유튜브: ${job.url}`, content: parsed?.content ?? transcriptText, source_type: "youtube", source_url: job.url })

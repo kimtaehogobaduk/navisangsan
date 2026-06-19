@@ -99,7 +99,7 @@ export const queueYoutubeJobsFn = createServerFn({ method: "POST" })
 
 // ─── YouTube 즉시 처리 ───
 export const processYoutubeJobsFn = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ limit: z.number().min(1).max(20).default(5) }))
+  .inputValidator(z.object({ limit: z.number().min(1).max(100).default(10) }))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: pendingJobs } = await supabaseAdmin

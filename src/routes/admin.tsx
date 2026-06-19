@@ -1023,7 +1023,7 @@ function YoutubeTab() {
               즉시 처리 <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-400">대기 {pendingCount}개</span>
             </p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              대기 중인 영상의 자막을 가져와 AI로 요약합니다. 한 번에 최대 10개씩 처리됩니다.
+              대기 중인 영상의 자막을 가져와 AI로 요약합니다. 대기 작업이 있으면 자동으로 처리됩니다.
             </p>
             {processMsg && (
               <p className={`mt-1.5 text-xs font-medium ${processMsg.type === "ok" ? "text-emerald-400" : "text-red-400"}`}>

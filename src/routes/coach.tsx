@@ -5,7 +5,10 @@ import { AppShell } from "@/components/AppShell";
 import { loadProfile, type StudentProfile } from "@/lib/profile";
 import { markProfileRequired } from "@/lib/require-profile";
 import { aiCoachChat } from "@/lib/ai.functions";
-import { Send, Loader2, Sparkles } from "lucide-react";
+import { Send, Loader2, Sparkles, RotateCcw } from "lucide-react";
+
+const COACH_KEY = "navi.user.coach.history.v1";
+const LEGACY_COACH = "navi.coach.history.v1";
 import { Markdown } from "@/components/Markdown";
 
 export const Route = createFileRoute("/coach")({
@@ -38,14 +41,25 @@ function Coach() {
       return;
     }
     setProfile(p);
-    const cached = localStorage.getItem("navi.coach.history.v1");
-    if (cached) setMessages(JSON.parse(cached));
+    // 레거시 키 → 새 키로 이관
+    let cached = localStorage.getItem(COACH_KEY);
+    if (!cached) {
+      const legacy = localStorage.getItem(LEGACY_COACH);
+      if (legacy) { localStorage.setItem(COACH_KEY, legacy); localStorage.removeItem(LEGACY_COACH); cached = legacy; }
+    }
+    if (cached) { try { setMessages(JSON.parse(cached)); } catch { /* */ } }
   }, [navigate]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-    localStorage.setItem("navi.coach.history.v1", JSON.stringify(messages));
+    localStorage.setItem(COACH_KEY, JSON.stringify(messages));
   }, [messages]);
+
+  function resetHistory() {
+    if (!confirm("AI 코치 대화 내역을 모두 초기화할까요? (이 기기와 클라우드 모두에서 삭제됩니다)")) return;
+    setMessages([]);
+    localStorage.removeItem(COACH_KEY);
+  }
 
   async function send(text?: string) {
     const content = (text ?? input).trim();
@@ -74,11 +88,23 @@ function Coach() {
 
   return (
     <AppShell>
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold tracking-tight">AI 코치</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Cerebras 초고속 추론 · {profile?.name}님의 프로필 기반 1:1 상담
-        </p>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">AI 코치</h1>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Cerebras 초고속 추론 · {profile?.name}님의 프로필 기반 1:1 상담
+          </p>
+        </div>
+        {messages.length > 0 && (
+          <button
+            onClick={resetHistory}
+            className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted-foreground transition hover:border-destructive/40 hover:text-destructive-foreground"
+            title="대화 내역 초기화"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            초기화
+          </button>
+        )}
       </div>
 
       <div

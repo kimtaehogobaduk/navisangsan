@@ -50,16 +50,20 @@ export type StudentProfile = {
   notes?: string;
 };
 
-const KEY = "navi.studentProfile.v2";
+// USER_DATA_PREFIX(navi.user.*) 로 저장해 cloud-sync 로 자동 동기화
+const KEY = "navi.user.studentProfile.v2";
+const LEGACY_KEY = "navi.studentProfile.v2";
 
 export function loadProfile(): StudentProfile | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(KEY);
+    let raw = localStorage.getItem(KEY);
+    if (!raw) {
+      const legacy = localStorage.getItem(LEGACY_KEY);
+      if (legacy) { localStorage.setItem(KEY, legacy); localStorage.removeItem(LEGACY_KEY); raw = legacy; }
+    }
     return raw ? (JSON.parse(raw) as StudentProfile) : null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 export function saveProfile(p: StudentProfile) {
@@ -70,6 +74,7 @@ export function saveProfile(p: StudentProfile) {
 export function clearProfile() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(KEY);
+  localStorage.removeItem(LEGACY_KEY);
 }
 
 const MOCK_LABEL_MAP: Record<string, string> = {

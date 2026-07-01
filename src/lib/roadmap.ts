@@ -90,13 +90,25 @@ export const CATEGORY_META: Record<
   mental:  { label: "멘탈",   color: "#ec4899", bg: "#ec489920" },
 };
 
-const ROADMAP_KEY = "navi.roadmap.v4";
-const DONE_KEY    = "navi.roadmap.done.v4";
+// USER_DATA_PREFIX(navi.user.*) 로 저장해 cloud-sync 로 자동 동기화
+const ROADMAP_KEY = "navi.user.roadmap.v4";
+const DONE_KEY    = "navi.user.roadmap.done.v4";
+const LEGACY_ROADMAP = "navi.roadmap.v4";
+const LEGACY_DONE = "navi.roadmap.done.v4";
+
+function migrate(key: string, legacy: string): string | null {
+  if (typeof window === "undefined") return null;
+  const v = localStorage.getItem(key);
+  if (v) return v;
+  const old = localStorage.getItem(legacy);
+  if (old) { localStorage.setItem(key, old); localStorage.removeItem(legacy); return old; }
+  return null;
+}
 
 export function loadRoadmap(): RoadmapData | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(ROADMAP_KEY);
+    const raw = migrate(ROADMAP_KEY, LEGACY_ROADMAP);
     return raw ? (JSON.parse(raw) as RoadmapData) : null;
   } catch { return null; }
 }
@@ -110,12 +122,14 @@ export function clearRoadmap() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(ROADMAP_KEY);
   localStorage.removeItem(DONE_KEY);
+  localStorage.removeItem(LEGACY_ROADMAP);
+  localStorage.removeItem(LEGACY_DONE);
 }
 
 export function loadDone(): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
-    const raw = localStorage.getItem(DONE_KEY);
+    const raw = migrate(DONE_KEY, LEGACY_DONE);
     return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
   } catch { return new Set(); }
 }
